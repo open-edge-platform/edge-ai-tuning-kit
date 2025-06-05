@@ -12,7 +12,7 @@ Training Node:
 | Disk (GB)             | 500 (Around 4 projects with 1 training task each)   | 1000 (Around 8 projects with 1 training task each) |
 
 ### Software Requirements
-* Ubuntu 22.04 LTS
+* Ubuntu 22.04 LTS / Ubuntu 24.04 LTS
 * Docker with **non-root user**.
 * Intel GPU drivers
 
