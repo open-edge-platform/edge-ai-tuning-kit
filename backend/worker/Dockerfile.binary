@@ -1,0 +1,82 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0 
+
+FROM debian:12-slim AS base
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ONEAPI_VERSION=2024.1
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV ONEAPI_VERSION=$ONEAPI_VERSION
+ENV LANG=C.UTF-8
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+    sudo \
+    curl \
+    procps \
+    ca-certificates \
+    gpg-agent \
+    software-properties-common \
+    && addgroup --system intel --gid 1000 \
+    && adduser --system --ingroup intel --uid 1000 --home /home/intel intel \
+    && echo "intel ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/intel \
+    && addgroup --system render --gid 110 \
+    && usermod -aG render intel \
+    && curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" > /etc/apt/sources.list.d/oneAPI.list \
+    && curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | gpg --dearmor | tee /usr/share/keyrings/intel-graphics.gpg \
+    && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" > /etc/apt/sources.list.d/intel-graphics.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    intel-basekit-${ONEAPI_VERSION} \
+    intel-oneapi-dnnl-${ONEAPI_VERSION} \
+    intel-opencl-icd \
+    intel-level-zero-gpu \
+    libze1 \
+    libze-dev \
+    clinfo \
+    git \
+    build-essential \
+    libaio-dev \
+    python3.11-dev \
+    python3.11-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /usr/src \
+    && chown -R intel:intel /usr/src
+
+FROM base AS dependencies
+ARG DEEPSPEED_TAG=78c518e
+ARG INTEL_DEEPSPEED_TAG=3322b32
+ARG IPEX_LLM_VER=2.1.0b20240730
+ENV SYCL_CACHE_PERSISTENT=1
+# Setting up for the development env
+USER intel
+WORKDIR /usr/src/app
+RUN python3 -m venv /usr/src/.venv 
+ENV PATH="/usr/src/.venv/bin:$PATH"
+# Install PyTorch and IPEX related dependencies
+RUN python3 -m pip install --no-cache-dir --upgrade pip \
+    && python3 -m pip install --no-cache-dir --pre ipex-llm[xpu] --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ \
+    && python3 -m pip install --no-cache-dir --pre --no-deps ipex-llm[xpu]==${IPEX_LLM_VER} --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ \
+    && python3 -m pip install --no-cache-dir torch==2.1.0.post2 \
+    torchvision==0.16.0.post2 \
+    torchaudio==2.1.0.post2 \
+    intel-extension-for-pytorch==2.1.30.post0 \
+    intel-extension-for-pytorch-deepspeed==2.1.30 \
+    oneccl_bind_pt==2.1.300+xpu --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/ \
+    && python3 -m pip install --no-cache-dir git+https://github.com/microsoft/DeepSpeed.git@${DEEPSPEED_TAG} \
+    && python3 -m pip install --no-cache-dir git+https://github.com/intel/intel-extension-for-deepspeed.git@${INTEL_DEEPSPEED_TAG} \
+    && mkdir -p /usr/src/app/data
+COPY --chown=intel:intel ./app/requirements.txt .
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
+HEALTHCHECK --interval=1m --timeout=30s --start-period=5s --retries=10 \
+    CMD celery inspect ping || exit 1
+COPY --chown=intel:intel ./app/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
+FROM dependencies AS deployment
+USER intel
+WORKDIR /usr/src/app
+# Copy the binary from builder image
+COPY --chown=intel:intel ./app /usr/src/app
+RUN chmod 755 /usr/src/app \
+    && mkdir -p /usr/src/app/data
