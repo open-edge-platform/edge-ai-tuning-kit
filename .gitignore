@@ -1,0 +1,24 @@
+# Environment file for the projects
+.env
+.framework
+
+# Test cache
+.pytest_cache
+report.html
+
+# Server file
+.venv
+__pycache__
+
+# Thirdparty
+thirdparty
+
+# Data file
+logs
+tmp
+data
+*.zip
+backend/engine/bin
+backend/server/bin
+backend/engine/binary/bin
+backend/server/binary/bin
