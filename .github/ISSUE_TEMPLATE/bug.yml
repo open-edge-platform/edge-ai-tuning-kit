@@ -1,0 +1,61 @@
+name: Bug report
+description: Help us improve Edge AI Tuning Kit.
+title: "[Bug]: "
+labels: ["bug", "support_request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide all the necessary information to expedite the response.
+  - type: input
+    id: eatk_version
+    attributes:
+      label: Edge AI Tuning Kit version
+      description: Version of Edge AI Tuning Kit you are using
+      placeholder: main branch / v2025.1.0 release
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you using?
+      options:
+        - Ubuntu 22.04 (LTS)
+        - Ubuntu 24.04 (LTS)
+    validations:
+      required: true
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Issue description
+      description: What issue are you having, and what did you expect to happen instead?
+      placeholder: Please provide a detailed description of the issue
+    validations:
+      required: true
+  - type: textarea
+    id: step_by_step
+    attributes:
+      label: Step-by-step reproduction 
+      description: How can we reproduce your issue?
+      placeholder: Please provide detailed instructions on how to reproduce the issue
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Issue submission checklist
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/intel/intel-one-mono/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I'm reporting an issue. It's not a question.
+          required: true
+        - label: I checked the problem with the documentation, FAQ, open issues, Stack Overflow, etc., and have not found a solution.
+          required: true
+        - label: There is reproducer code and related data files such as images, videos, models, etc.
+          required: true
