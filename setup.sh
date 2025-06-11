@@ -6,6 +6,7 @@ set -e
 
 APP_VERSION=2025.1
 SERVER_IP=backend
+COMMIT_ID=3b2f340
 RENDER_GROUP_ID=$(getent group render | cut -d: -f3)
 export RENDER_GROUP_ID
 DOCKER_GROUP_ID=$(getent group docker | cut -d: -f3)
@@ -38,6 +39,8 @@ verify_gpu_available() {
         "Intel(R) Arc(TM) A770 Graphics"
         "Intel(R) Arc(TM) A770M Graphics"
         "Intel(R) Data Center GPU Flex 170"
+        "Intel(R) Graphics \[0xe20b\]"
+        "Intel(R) Arc(TM) B580 Graphics"
     )
 
     echo -e "\n# Identifying GPU"
@@ -63,6 +66,7 @@ verify_gpu_available() {
         echo -e "- Intel(R) Arc(TM) A770 Graphics"
         echo -e "- Intel(R) Arc(TM) A770M Graphics"
         echo -e "- Intel(R) Data Center GPU Flex 170"
+        echo -e "- Intel(R) Graphics \[0xe20b\]"
         exit 1
     fi
 }
@@ -114,8 +118,10 @@ verify_os() {
         echo "- Operating System: Ubuntu 22.04 LTS"
     elif grep -q 'Ubuntu 24.04' /etc/os-release; then
         echo "- Operating System: Ubuntu 24.04 LTS"
+    elif grep -q 'Ubuntu 24.10' /etc/os-release; then
+        echo "- Operating System: Ubuntu 24.10"
     else
-        echo "- Operating System: Unsupported OS. Please use Ubuntu 22.04 or 24.04 LTS"
+        echo "- Operating System: Unsupported OS. Please use Ubuntu 22.04, 24.04 LTS or Ubuntu 22.10"
         exit 1
     fi
 }
@@ -184,7 +190,27 @@ verify_docker_group_permission() {
 
 setup_app() {
     echo -e "\n# Building the docker images for application."
-    docker build -t edge-ai-tuning-kit.backend.serving:"$APP_VERSION"-BINARY ./backend/serving
+    if [ ! -d "./thirdparty" ]; then
+        mkdir -p thirdparty
+    fi
+
+    if [ ! -d "./thirdparty/edge-developer-kit-reference-scripts" ]; then
+        echo -e "- Downloading the thirdparty folder from the repository."
+        if ! git clone https://github.com/intel/edge-developer-kit-reference-scripts.git thirdparty/edge-developer-kit-reference-scripts; then
+            echo -e "- Unable to clone the repository. Please check your internet connection."
+            exit 1
+        fi
+        cd thirdparty/edge-developer-kit-reference-scripts || exit 1
+        git checkout $COMMIT_ID
+        cd ../.. || exit 1
+    fi
+
+    if [ -d "./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices/text-generation/vllm" ]; then
+        docker build -t edge-ai-tuning-kit.backend.serving:"$APP_VERSION"-BINARY ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices/text-generation/vllm
+    else
+        echo -e "- Unable to build docker images. Please ensure thirdparty folder is available."
+        exit 1
+    fi
     APP_VER=$APP_VERSION docker compose -f docker-compose.yml build --build-arg SERVER_IP="$SERVER_IP"
 }
 

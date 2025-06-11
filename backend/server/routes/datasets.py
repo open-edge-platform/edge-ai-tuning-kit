@@ -3,14 +3,14 @@
 
 import os
 import logging
+import urllib.parse
 from typing import Annotated, Optional, List, Union
 from typing_extensions import TypedDict
-from routes.data import DataService
+
 from fastapi import APIRouter, UploadFile, Depends, HTTPException, Path, Query
+from routes.data import DataService
 from utils.celery_app import celery_app
 from utils.common import ID_MAX
-import urllib.parse
-
 from services.datasets import DatasetService
 
 logger = logging.getLogger(__name__)
@@ -28,26 +28,24 @@ class ICreateDataset(TypedDict):
 
 @router.get("", status_code=200)
 async def get_all_datasets(service: Annotated[DatasetService, Depends()]):
-    result= await service.get_all_datasets()
+    result = await service.get_all_datasets()
     status = False
     if result:
         status = True
     return {"status": status, "data": result}
-
 
 
 @router.get("/{id}", status_code=200)
 async def get_dataset(service: Annotated[DatasetService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
-    result= await service.get_dataset(id)
+    result = await service.get_dataset(id)
     status = False
     if result:
         status = True
     return {"status": status, "data": result}
 
 
-
 @router.get("/{id}/generation_metadata", status_code=200)
-async def get_dataset(service: Annotated[DatasetService, Depends()], id: int= Path(..., gt=0, le=ID_MAX)):
+async def get_dataset_generation_metadata(service: Annotated[DatasetService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
     dataset = await service.get_dataset(id)
     result = None
     if dataset:
@@ -57,15 +55,25 @@ async def get_dataset(service: Annotated[DatasetService, Depends()], id: int= Pa
 
 
 @router.get("/{id}/data", status_code=200)
-async def get_dataset_data(data_service: Annotated[DataService, Depends()], id: int= Path(..., gt=0, le=ID_MAX), page: Optional[int] = Query(None, gt=0, le=ID_MAX), pageSize: Optional[int] = Query(None, gt=0)):
+async def get_dataset_data(data_service: Annotated[DataService, Depends()], id: int = Path(..., gt=0, le=ID_MAX), page: Optional[int] = Query(None, gt=0, le=ID_MAX), pageSize: Optional[int] = Query(None, gt=0)):
     data = await data_service.get_all_data(page, pageSize, {"dataset_id": id})
     return {"status": True, "data": data}
 
 
 @router.get("/{id}/data/count", status_code=200)
-async def get_dataset_data(data_service: Annotated[DataService, Depends()], id: int= Path(..., gt=0, le=ID_MAX)):
+async def get_dataset_data(data_service: Annotated[DataService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
     count = await data_service.get_data_count({"dataset_id": id})
     return {"status": True, "data": count}
+
+
+@router.get("/{id}/data/acknowledge_count", status_code=200)
+async def get_acknowledge_dataset_data(data_service: Annotated[DataService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
+    count = await data_service.get_data_count({
+        "isGenerated": False,
+        "dataset_id": id
+    })
+    return {"status": True, "data": count}
+
 
 @router.get("/{id}/text_embedding", status_code=200)
 async def get_text_embedding(id: int = Path(..., gt=0, le=ID_MAX), page: Optional[int] = Query(None, gt=0, le=ID_MAX), pageSize: Optional[int] = Query(None, gt=0, le=ID_MAX), source: Optional[str] = None):
@@ -76,9 +84,9 @@ async def get_text_embedding(id: int = Path(..., gt=0, le=ID_MAX), page: Optiona
 
     try:
         result = celery_app.send_task(
-            name="celery_task:get_text_embeddings",
+            name="document_node:get_text_embeddings",
             args=[id, page, pageSize, source],
-            queue='default_queue'
+            queue="document_queue"
         )
         data = result.get()
         return {"status": True, "data": data}
@@ -97,12 +105,16 @@ async def get_text_embedding(id: int = Path(..., gt=0, le=ID_MAX), page: Optiona
 @router.get("/{id}/text_embedding_sources", status_code=200)
 async def get_text_embedding_sources(id: int = Path(..., gt=0, le=ID_MAX)):
     try:
+        logger.info("Starting")
         result = celery_app.send_task(
-            name="celery_task:get_text_embeddings_source",
+            name="document_node:get_text_embeddings_source",
             args=[id],
-            queue='default_queue'
+            queue="document_queue"
         )
+        logger.info(f"Sent task: {result}")
+        
         data = result.get()
+        logger.info("Got result")
         result = {"status": True, "data": data}
         return result
     except FileNotFoundError:
@@ -110,7 +122,7 @@ async def get_text_embedding_sources(id: int = Path(..., gt=0, le=ID_MAX)):
         return result
     except Exception as error:
         raise HTTPException(
-            500, f"Error when getting document collections. Error: {error}")
+            500, f"Error when getting document source collections. Error: {error}")
 
 
 @router.post("", status_code=200)
@@ -134,7 +146,7 @@ async def create_text_embedding(chunk_size: int, chunk_overlap: int, id: int = P
 
         except:
             logger.warning(f"{file.filename} is not a valid file")
-        
+
     if len(file_list) == 0:
         logger.error("No file is able to use to create text embeddings.")
         raise HTTPException(
@@ -150,14 +162,14 @@ async def create_text_embedding(chunk_size: int, chunk_overlap: int, id: int = P
 
     logger.info("Sending background task for creating text embeddings")
     celery_app.send_task(
-        name="celery_task:create_text_embeddings",
+        name="document_node:create_text_embeddings",
         args=[
             id,
             str(processed_list),
             int(chunk_size),
             int(chunk_overlap)
         ],
-        queue='default_queue'
+        queue="document_queue"
     )
     result = {"status": True, "data": processed_list}
     return result
@@ -178,9 +190,9 @@ async def update_dataset(service: Annotated[DatasetService, Depends()], data: di
 @router.delete("/{id}", status_code=200)
 async def delete_dataset(service: Annotated[DatasetService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
     result = celery_app.send_task(
-        name="celery_task:delete_text_embedding_disk",
+        name="document_node:delete_text_embedding_disk",
         args=[id],
-        queue='default_queue'
+        queue="document_queue"
     )
     result = await service.delete_dataset(id)
     return result
@@ -190,12 +202,12 @@ async def delete_dataset(service: Annotated[DatasetService, Depends()], id: int 
 async def delete_text_embedding_by_uuid(uuid: str, id: int = Path(..., gt=0, le=ID_MAX)):
     try:
         result = celery_app.send_task(
-            name="celery_task:delete_text_embedding",
+            name="document_node:delete_text_embedding",
             args=[
                 id,
                 uuid
             ],
-            queue='default_queue'
+            queue="document_queue"
         )
         isDeleted = result.get()
         if not isDeleted:
@@ -209,7 +221,7 @@ async def delete_text_embedding_by_uuid(uuid: str, id: int = Path(..., gt=0, le=
 
 
 @router.delete("/{id}/text_embeddings/source/{source}", status_code=200)
-async def delete_text_embeddings_by_source(source: str, id: int = Path(..., gt=0 , le=ID_MAX)):
+async def delete_text_embeddings_by_source(source: str, id: int = Path(..., gt=0, le=ID_MAX)):
     source_path = f"./data/projects/{id}/chroma/documents/{source}"
     try:
         if os.path.isfile(source_path):
@@ -217,12 +229,12 @@ async def delete_text_embeddings_by_source(source: str, id: int = Path(..., gt=0
             os.remove(source_path)
 
         result = celery_app.send_task(
-            name="celery_task:delete_text_embedding_source",
+            name="document_node:delete_text_embedding_source",
             args=[
                 id,
                 source
             ],
-            queue='default_queue'
+            queue="document_queue"
         )
         if not result:
             raise HTTPException(

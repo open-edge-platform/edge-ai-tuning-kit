@@ -12,10 +12,12 @@ from models.projects import ProjectsModel
 from models.datasets import DatasetsModel
 from models.tasks import TasksModel
 from utils.prompt import DEFAULT_SYSTEM_MESSAGE
+from services.tasks import TaskService
 
 PROJECT_PATH = "./data/tasks"
 
 logger = logging.getLogger(__name__)
+
 
 class ProjectsService:
     def __init__(self, request: Request) -> None:
@@ -92,7 +94,8 @@ class ProjectsService:
     async def update_project(self, id, data):
         try:
             updated_data = {
-                "name": data['name']
+                "name": data['name'],
+                "description": data['description']
             }
             result = self.db.query(ProjectsModel).filter(
                 ProjectsModel.id == id).update(updated_data)
@@ -111,10 +114,13 @@ class ProjectsService:
     async def delete_project(self, id):
         try:
             logger.debug("Deleting tasks database related to the project ...")
-            tasks = self.db.query(TasksModel).filter(
-                TasksModel.project_id == id).all()
-            for task in tasks:
-                self.db.delete(task)
+            task_service = TaskService(self.request)
+            try:
+                await task_service.delete_task(id)
+            except Exception as error:
+                logger.warning(
+                    f"Error when deleting task for id {id}: {error}")
+
             if os.path.isdir(f"{PROJECT_PATH}/{id}/models"):
                 logger.debug(f"Removing the model folder for id: {id}")
                 shutil.rmtree(f"{PROJECT_PATH}/{id}/models")

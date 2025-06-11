@@ -20,12 +20,12 @@ default_models = [
         "model_metadata": {
             "model_type": "TEXT_GENERATION",
             "model_revision": "3990259826cbb8da3eed2afa1d015b421906a750",
-            "is_custom_model": False
+            "is_custom_model": False,
         },
         "download_metadata": {
             "download_task_id": None,
             "progress": -1,
-            "status": "UNAVAILABLE" # "UNAVAILABLE", "PENDING", "DOWNLOADING", "SUCCESS", "FAILURE"
+            "status": "UNAVAILABLE"  # "UNAVAILABLE", "PENDING", "DOWNLOADING", "SUCCESS", "FAILURE"
         }
     }
 ]

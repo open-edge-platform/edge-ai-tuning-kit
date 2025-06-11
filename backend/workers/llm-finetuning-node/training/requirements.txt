@@ -1,0 +1,20 @@
+# App dependencies
+celery==5.4.0
+celery[redis]==5.4.0
+eventlet==0.36.1
+requests==2.32.4
+pydantic==2.10.6
+omegaconf==2.3.0
+
+transformers
+sentence-transformers==4.1.0
+peft==0.15.2
+trl==0.17.0
+outlines==0.2.3
+git+https://github.com/bitsandbytes-foundation/bitsandbytes.git@multi-backend-refactor
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+optimum-intel[openvino,nncf]==1.22.0
+optimum==1.24.0
+openvino==2025.1.0
+openvino_genai==2025.1.0

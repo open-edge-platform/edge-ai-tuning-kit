@@ -59,7 +59,7 @@ async def remove_services():
         if "edge-ai-tuning-kit.backend.serving" in container.name:
             tasks.append(container.remove(force=True))
             logger.info(f"Services: {container.name} deleted.")
-        elif "edge-ai-tuning-kit.backend.evaluation" in container.name:
+        elif "edge-ai-tuning-kit.backend.llm-finetuning.evaluation-node" in container.name:
             tasks.append(container.remove(force=True))
             logger.info(f"Services: {container.name} deleted.")
     await asyncio.gather(*tasks)

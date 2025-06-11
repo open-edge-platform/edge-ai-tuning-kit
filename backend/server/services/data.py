@@ -57,6 +57,34 @@ class DataService:
         self.dataset_service = DatasetService(request)
         self.request = request
 
+    def _convert_to_sharegpt_format(self, data):
+        return {
+            "conversations": [
+                {
+                    "from": "human",
+                    "value": data.raw_data['user_message']
+                },
+                {
+                    "from": "gpt",
+                    "value": data.raw_data['assistant_message']
+                }
+            ]
+        }
+    
+    def _convert_to_openai_format(self, data):
+        return {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": data.raw_data['user_message']
+                },
+                {
+                    "role": "assistant",
+                    "content": data.raw_data['assistant_message']
+                }
+            ]
+        }
+
     async def get_all_data(self, page=None, pageSize=None, filter={}):
         try:
             results = []
@@ -78,15 +106,10 @@ class DataService:
         return self.db.query(DataModel).filter_by(**filter).count()
 
     async def export_to_json(self, dataset_id, export_path):
-        def convert_to_string(data):
-            for key, value in data.items():
-                if not isinstance(value, str):
-                    data[key] = str(value)
-            return data
-
-        data = await self.get_all_data(filter={"dataset_id": dataset_id})
-        if len(data) < 1:
+        data_list = await self.get_all_data(filter={"dataset_id": dataset_id})
+        if len(data_list) < 1:
             return
+        
         file_id = str(uuid.uuid4())
         file_path = export_path
         file_name = f"{file_id}.json"
@@ -94,9 +117,8 @@ class DataService:
             pathlib.Path(file_path).mkdir(parents=True, exist_ok=True)
             with open(f'{file_path}/{file_name}', "w") as buf:
                 buf.write("[\n")
-                for d in data:
-                    formatted_raw_data = convert_to_string(d.raw_data)
-                    json_data = json.dumps(formatted_raw_data, indent=4)
+                for data in data_list:
+                    json_data = json.dumps(data.raw_data, indent=4)
                     buf.write(json_data+",")
                 buf.seek(buf.tell() - 1, 0)
                 buf.write("\n]")
@@ -255,14 +277,13 @@ class DataService:
             }
 
         celery_task_id = celery_app.send_task(
-            name="celery_task:data_generation",
+            name="dataset_node:data_generation",
             args=[
                 dataset_id, 
                 str(file_names), 
-                project_type, 
                 num_generations
             ],
-            queue='trainer_queue'
+            queue="dataset_queue"
         )
 
         formatted_dataset = {
@@ -301,14 +322,13 @@ class DataService:
             return {"status": False, "message": f"There is already an ongoing dataset generation task."}
 
         celery_task_id = celery_app.send_task(
-            name="celery_task:document_data_generation",
+            name="dataset_node:document_data_generation",
             args=[
                 dataset_id, 
                 source_filename,
-                project_type, 
                 num_generations
             ],
-            queue='trainer_queue'
+            queue="dataset_queue"
         )
 
         formatted_dataset = {
@@ -348,35 +368,19 @@ class DataService:
                     'message': f'No dataset found with id given dataset_id'
                 }
             
-            # Skip if dataset generation task is already stopping / cancelled
-            if dataset.generation_metadata['isCancel']:
-                return {
-                    'status': True,
-                    'message': f"Already stopping dataset generation for dataset {dataset_id}."
-                }
-            
-            if dataset.generation_metadata['celery_task_id']:
-                abort_celery_task(dataset.generation_metadata['celery_task_id'])
-            else:
+            if not dataset.generation_metadata['celery_task_id']:
                 return {
                     'status': False, 
                     'data': None,
                     'message': f'Celery task id not found'
                 }
 
+            abort_celery_task(dataset.generation_metadata['celery_task_id'])
             formatted_dataset = {
                 "name": dataset.name,
                 "project_id": dataset.project_id,
                 "prompt_template": dataset.prompt_template,
-                "generation_metadata": {
-                    "total_page": 0,
-                    "current_page": 0,
-                    "total_files": 0,
-                    "processed_files": 0,
-                    "status": 'STOPPING',
-                    "isCancel": True,
-                    "celery_task_id": dataset.generation_metadata['celery_task_id'],
-                },
+                "generation_metadata": None,
             }
 
             await self.dataset_service.update_dataset(dataset_id, formatted_dataset)

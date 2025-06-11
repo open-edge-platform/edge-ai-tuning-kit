@@ -20,22 +20,7 @@ def get_system_uptime():
     except Exception as e:
         return str(e)
 
-# Health check endpoint
-@router.get("/health", status_code=200)
-async def check_health():
-    # Check status and return a detailed response
-    system_info = {
-        "message": "Service is running healthy",
-        "data": {
-            "platform": platform.system(),
-            "platform-release": platform.release(),
-            "cpu": platform.processor(),
-            "uptime": get_system_uptime()
-        }
-    }
-    return system_info
 
-# Update hardware info
 @router.patch("/info", status_code=200)
 async def update_info(service: Annotated[HardwareService, Depends()], data: dict):
     try:

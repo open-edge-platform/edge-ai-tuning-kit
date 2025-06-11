@@ -1,13 +1,22 @@
 # Edge AI Tuning Kit
-The Edge AI Tuning Kit is a comprehensive solution for creating, tailoring, and implementing AI models in any location. It incorporates training and inference frameworks, safeguarding toolkits, data management tools, and pre-existing models. This provides businesses with a convenient, economical, and rapid approach to integrate AI on the Intel Platform.
+
+The Edge AI Tuning Kit is a comprehensive solution for creating, tailoring, and implementing AI models in edge platform. It incorporates AI training and inference frameworks, data management tools. This provides businesses with a convenient, economical, and rapid approach to integrate AI on the Intel Platform.
+
+---
+
+## Latest Update 🔥
+
+- **[2025/06]** Added support for Intel® Arc™ B580 Graphics and introduced a new user interface for an improved experience.
+- **[2025/06]** Initial release of Edge AI Tuning Kit v2025.1.0.
+
+---
 
 ## Requirements
 ### Hardware Requirements
-Training Node:
 | Hardware requirements | Minimum                                             | Recommended                                        |
 |-----------------------|-----------------------------------------------------|----------------------------------------------------|
 | CPU                   | 13th Gen Intel(R) Core CPU and above                | 4th Gen Intel® Xeon® Scalable Processor and above  |
-| GPU                   | Intel® Arc™ A770 Graphics (16GB)                    | Multiple Intel® Arc™ A770 Graphics (16GB)          |
+| GPU                   | Single Intel® A-Series or B-Series Graphics         | Multiple Intel® A-Series or B-Series Graphics      |
 | RAM (GB)              | 64 and above                                        | 128 and above                                      |
 | Disk (GB)             | 500 (Around 4 projects with 1 training task each)   | 1000 (Around 8 projects with 1 training task each) |
 
