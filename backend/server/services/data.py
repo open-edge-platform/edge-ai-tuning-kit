@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0 
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import json
@@ -21,8 +21,10 @@ EXPORT_PATH = "./data/projects"
 SUPPORTED_DOCUMENT_GEN_EXTENSIONS = [".pdf", ".txt"]
 logger = logging.getLogger(__name__)
 
+
 def has_valid_extension(filename, allowed_extensions):
     return any(filename.lower().endswith(ext) for ext in allowed_extensions)
+
 
 class DataFileService:
     async def get_data_from_file(self, file_id):
@@ -70,7 +72,7 @@ class DataService:
                 }
             ]
         }
-    
+
     def _convert_to_openai_format(self, data):
         return {
             "messages": [
@@ -106,10 +108,19 @@ class DataService:
         return self.db.query(DataModel).filter_by(**filter).count()
 
     async def export_to_json(self, dataset_id, export_path):
-        data_list = await self.get_all_data(filter={"dataset_id": dataset_id})
-        if len(data_list) < 1:
-            return
-        
+        data_list = await self.get_all_data(
+            filter={
+                "isGenerated": False,
+                "dataset_id": dataset_id
+            }
+        )
+
+        if len(data_list) < 5:
+            return {
+                "status": False,
+                "message": "Requested dataset does not have enough data to export."
+            }
+
         file_id = str(uuid.uuid4())
         file_path = export_path
         file_name = f"{file_id}.json"
@@ -241,12 +252,12 @@ class DataService:
     async def delete_data(self, id):
         result = self.db.query(DataModel).filter(DataModel.id == id).delete()
         return result
-    
+
     async def generate_qa(self, dataset_id: int, project_type: str, num_generations: int = 5, files: List[UploadFile] = [UploadFile(...)],):
         dataset = await self.dataset_service.get_dataset(dataset_id)
         if not dataset:
             return {"status": False, "message": f"No dataset found with given dataset_id"}
-        
+
         if dataset.generation_metadata is not None:
             return {"status": False, "message": f"There is already an ongoing dataset generation task."}
 
@@ -257,19 +268,19 @@ class DataService:
                 if not has_valid_extension(filename, SUPPORTED_DOCUMENT_GEN_EXTENSIONS):
                     return {"status": False, "message": f"Only support following file types: {SUPPORTED_DOCUMENT_GEN_EXTENSIONS}"}
             except:
-                return {"status":False, "error": f"Invalid file: {file.filename}"}
-            
+                return {"status": False, "error": f"Invalid file: {file.filename}"}
+
         dataset_dir = f"{EXPORT_PATH}/{dataset_id}/data-generation/documents"
         if not os.path.isdir(dataset_dir):
             os.makedirs(dataset_dir, exist_ok=True)
-        
+
         for file in files:
             filename = urllib.parse.unquote(file.filename)
             file_names.append(filename)
             with open(f"{dataset_dir}/{filename}", "wb") as f:
                 f.write(file.file.read())
 
-        if len(file_names) <1:
+        if len(file_names) < 1:
             return {
                 'status': False,
                 'data': None,
@@ -279,8 +290,8 @@ class DataService:
         celery_task_id = celery_app.send_task(
             name="dataset_node:data_generation",
             args=[
-                dataset_id, 
-                str(file_names), 
+                dataset_id,
+                str(file_names),
                 num_generations
             ],
             queue="dataset_queue"
@@ -312,19 +323,19 @@ class DataService:
         }
 
         return result
-    
+
     async def generate_document_qa(self, dataset_id: int, source_filename: str, project_type: str, num_generations: int = 5):
         dataset = await self.dataset_service.get_dataset(dataset_id)
         if not dataset:
             return {"status": False, "message": f"No dataset found with given dataset_id"}
-        
+
         if dataset.generation_metadata is not None:
             return {"status": False, "message": f"There is already an ongoing dataset generation task."}
 
         celery_task_id = celery_app.send_task(
             name="dataset_node:document_data_generation",
             args=[
-                dataset_id, 
+                dataset_id,
                 source_filename,
                 num_generations
             ],
@@ -355,22 +366,22 @@ class DataService:
             "status": True,
             "message": message
         }
-        
+
         return result
-    
+
     async def stop_data_generation(self, dataset_id: int):
         try:
             dataset = await self.dataset_service.get_dataset(dataset_id)
             if not dataset:
                 return {
-                    'status': False, 
+                    'status': False,
                     'data': None,
                     'message': f'No dataset found with id given dataset_id'
                 }
-            
+
             if not dataset.generation_metadata['celery_task_id']:
                 return {
-                    'status': False, 
+                    'status': False,
                     'data': None,
                     'message': f'Celery task id not found'
                 }
@@ -384,7 +395,7 @@ class DataService:
             }
 
             await self.dataset_service.update_dataset(dataset_id, formatted_dataset)
-            
+
             return {
                 'status': True,
                 'message': f"Stopping dataset generation for dataset {dataset_id}."
