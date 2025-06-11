@@ -27,14 +27,34 @@ async def get_all_llm_models(service: Annotated[LLMService, Depends()]):
 
 
 @router.get("/{id}", status_code=200)
-async def get_llm_model(service: Annotated[LLMService, Depends()],id: int = Path(..., gt=0, le=ID_MAX)):
+async def get_llm_model(service: Annotated[LLMService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
     result = await service.get_model(id)
     return result
 
 
 @router.post("", status_code=200)
 async def create_llm_model(service: Annotated[LLMService, Depends()], model: ICreateModel):
+    # Check if model with this model_id already exists
+    existing_models = await service.get_all_llm_models(filter={"model_id": model["model_id"]})
+    if existing_models and len(existing_models) > 0:
+        # Model already exists, return its data
+        existing_model = existing_models[0]
+        return {
+            'status': True,
+            'data': existing_model.id,
+            'message': "Model already exists"
+        }
+    
+    # If not exists, create new model
     result = await service.create_model(dict(model))
+    
+    # Automatically start the download if the model was created successfully
+    if result['status'] and result['data']:
+        model_id = result['data']
+        await service.download_model(model_id)
+    else:
+        print("Model creation failed, not starting download.")
+        
     return result
 
 
@@ -43,10 +63,12 @@ async def download_llm_model(service: Annotated[LLMService, Depends()], id: int 
     result = await service.download_model(id)
     return result
 
+
 @router.post("/stop_download/{id}", status_code=200)
 async def download_llm_model(service: Annotated[LLMService, Depends()], id: int = Path(..., gt=0, le=ID_MAX)):
     result = await service.stop_download_model(id)
     return result
+
 
 @router.patch("/{id}", status_code=200)
 async def update_llm_model(service: Annotated[LLMService, Depends()],  data: dict, id: int = Path(..., gt=0, le=ID_MAX)):

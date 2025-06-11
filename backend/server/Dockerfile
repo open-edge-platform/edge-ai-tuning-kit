@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0 
 
-FROM debian:12-slim AS development
+FROM debian:12-slim
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
@@ -27,29 +27,8 @@ ENV PATH="/usr/src/.venv/bin:$PATH"
 COPY requirements.txt .
 RUN python3 -m pip install --no-cache-dir --upgrade pip \
     && python3 -m pip install --no-cache-dir -r requirements.txt
+COPY . .
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD wget --no-verbose -O /dev/null --tries=1 http://localhost:$SERVER_PORT/healthcheck || exit 1
 
-FROM development AS builder
-# Compile the binary app for engine
-ARG VALIDITY_PERIOD=0
-USER root
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y \
-    binutils \
-    python3.11-dev \
-    && rm -rf /var/lib/apt/lists/*
-# Run the compilation scripts
-USER intel
-COPY --chown=intel:intel . /usr/src/app
-RUN python3 -m pip install --no-cache-dir pyinstaller \
-    && bash binary/compile.sh $VALIDITY_PERIOD
-
-FROM development
-# Copy the binary from builder image
-USER intel
-COPY --from=builder --chown=intel:intel /usr/src/app/binary/bin/dist /usr/src/app
-RUN chmod 755 /usr/src/app \
-    && mkdir -p /usr/src/app/data
-
-CMD ["./main"]
+CMD ["/usr/src/.venv/bin/python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5999", "--reload", "--log-config", "logger.yaml"]

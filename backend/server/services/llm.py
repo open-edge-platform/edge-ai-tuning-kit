@@ -10,8 +10,9 @@ from routes.utils import get_db
 from models.llm import LLMModel
 from utils.celery_app import celery_app, terminate_celery_task
 
-EXPORT_PATH = "./data/cache/hub"
 logger = logging.getLogger(__name__)
+EXPORT_PATH = "./data/cache/hub"
+MODEL_PATH = "./data/models/hf"
 
 
 class LLMService:
@@ -34,9 +35,10 @@ class LLMService:
             return None
 
         return result
-    
+
     async def get_model_dir(self, model_id):
-        result = self.db.query(LLMModel).filter(LLMModel.model_id == model_id).first()
+        result = self.db.query(LLMModel).filter(
+            LLMModel.model_id == model_id).first()
         if not result:
             return None
 
@@ -52,13 +54,13 @@ class LLMService:
 
             new_model = LLMModel(
                 model_id=model['model_id'],
-                model_dir=f"./data/models/hf/{model_name}",
+                model_dir=f"{MODEL_PATH}/{model_name}",
                 description=model['model_description'],
                 is_downloaded=False,
                 model_metadata={
                     "model_type": model['model_type'],
                     "model_revision": model['model_revision'],
-                    "is_custom_model": False
+                    "is_custom_model": False,
                 },
                 download_metadata={
                     "download_task_id": None,
@@ -125,15 +127,15 @@ class LLMService:
             }
             await self.update_model(id, data)
             download_task_id = celery_app.send_task(
-                name="celery_task:download_model",
-                queue='default_queue',
+                name="common_node:download_model",
                 args=[
                     "HF_Model_Download",
                     id,
                     model_id,
                     model_dir,
                     model_revision
-                ]
+                ],
+                queue="common_queue"
             )
             data = {
                 "download_metadata": {
@@ -162,7 +164,8 @@ class LLMService:
                     'message': f"Model {id} not found in database."
                 }
             if model.download_metadata['download_task_id']:
-                terminate_celery_task(model.download_metadata['download_task_id'])
+                terminate_celery_task(
+                    model.download_metadata['download_task_id'])
             data = {
                 "is_downloaded": False,
                 "download_metadata": {
@@ -191,9 +194,10 @@ class LLMService:
                     'status': False,
                     'message': f"Model {id} not found in database."
                 }
-                
-            if os.path.isdir(model.model_dir):
-                logger.info("Model cache file is available. Deleting the cache files")
+
+            if os.path.exists(model.model_dir):
+                logger.info(
+                    "Model cache file is available. Deleting the cache files")
                 shutil.rmtree(model.model_dir)
 
             try:
@@ -231,9 +235,10 @@ class LLMService:
                     'message': "Fail to delete model"
                 }
 
-            if os.path.isdir("./data/models/hf"):
-                logger.info("Model cache dir is available. Deleting all the model cache in the dir")
-                shutil.rmtree("./data/models/hf")
+            if os.path.exists(MODEL_PATH):
+                logger.info(
+                    "Model cache dir is available. Deleting all the model cache in the dir")
+                shutil.rmtree(MODEL_PATH)
 
             return {
                 'status': True,

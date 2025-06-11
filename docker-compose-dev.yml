@@ -4,7 +4,7 @@
 services:
   frontend:
     build:
-      context: ./frontend/admin
+      context: ./frontend
       dockerfile: Dockerfile
       target: development
     image: edge-ai-tuning-kit.frontend:${APP_VER}-DEV
@@ -12,32 +12,28 @@ services:
     hostname: ui
     restart: always
     environment:
-      NEXT_PUBLIC_API_URL: $SERVER_IP
+      NEXT_PUBLIC_HOSTNAME: $SERVER_IP
     depends_on:
       backend:
-        condition: service_healthy
-      task-runner:
-        condition: service_healthy
-      trainer-runner:
         condition: service_healthy
     networks:
       - app-network
     ports:
       - "$HOST:80:3000"
     volumes:
-      - ./frontend/admin:/app:rw
+      - ./frontend:/app:rw
     command: "npm run dev"
 
   backend:
     build:
       context: ./backend/server
       dockerfile: Dockerfile
-      target: development
     image: edge-ai-tuning-kit.backend.server:${APP_VER}-DEV
     container_name: edge-ai-tuning-kit.backend.server
     hostname: backend
     restart: always
     group_add:
+      - ${RENDER_GROUP_ID:-992}
       - ${DOCKER_GROUP_ID:-984}
     depends_on:
       postgres:
@@ -51,8 +47,9 @@ services:
     ports:
       - "$HOST:5999:5999"
     environment:
-      APP_VER: ${APP_VER}-DEV
+      APP_VER: ${APP_VER}-BINARY
       SERVER_PORT: $SERVER_PORT
+      SERVER_HOST: $SERVER_HOST
       POSTGRES_URI: $POSTGRES_URI
       POSTGRES_PASSWORD: $POSTGRES_PASSWORD
       POSTGRES_USER: $POSTGRES_USER
@@ -60,21 +57,47 @@ services:
       CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       HF_HOME: ./data/cache
-      RENDER_GROUP_ID: $RENDER_GROUP_ID
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+      RENDER_GROUP_ID: ${RENDER_GROUP_ID:-992}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - cache-data:/usr/src/app/data
       - ./backend/server:/usr/src/app
-    command: "python3 -m uvicorn main:app --host $SERVER_HOST --port $SERVER_PORT --reload --reload-exclude /usr/src/app/data --log-config ./dev_logger.yaml"
+    devices:
+      - /dev/dri:/dev/dri
+    command: "python3 -m uvicorn main:app --host $SERVER_HOST --port $SERVER_PORT --reload --log-config ./dev_logger.yaml"
 
-  trainer-runner:
+  common-node:
     build:
-      context: ./backend/worker
+      context: ./backend/workers/llm-finetuning-node/common
       dockerfile: Dockerfile
-      target: dependencies
-    image: edge-ai-tuning-kit.backend.engine:${APP_VER}-DEV
-    container_name: edge-ai-tuning-kit.backend.trainer-runner
-    hostname: trainer-runner
+    image: edge-ai-tuning-kit.backend.common-node:${APP_VER}-DEV
+    container_name: edge-ai-tuning-kit.backend.llm-finetuning.common-node
+    hostname: common-node
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
+      HF_HOME: ./data/cache
+      HF_TOKEN: $HF_TOKEN
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - cache-data:/usr/src/app/data
+      - ./backend/workers/llm-finetuning-node/common:/usr/src/app
+    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+
+  dataset-node:
+    build:
+      context: ./backend/workers/llm-finetuning-node/datasets
+      dockerfile: Dockerfile
+    image: edge-ai-tuning-kit.backend.dataset-node:${APP_VER}-DEV
+    container_name: edge-ai-tuning-kit.backend.llm-finetuning.dataset-node
+    hostname: dataset-node
     restart: always
     group_add:
       - ${RENDER_GROUP_ID:-992}
@@ -84,25 +107,27 @@ services:
     networks:
       - app-network
     environment:
-      USE_XETLA: "OFF"
+      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       SYCL_CACHE_PERSISTENT: 1
       SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS: 1
-      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       HF_HOME: ./data/cache
       HF_TOKEN: $HF_TOKEN
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
     volumes:
       - cache-data:/usr/src/app/data
-      - ./backend/worker:/usr/src/app
-      - ./deployment:/usr/src/app/assets/deployment
+      - ./backend/workers/llm-finetuning-node/datasets:/usr/src/app
     devices:
       - /dev/dri:/dev/dri
-    command: "watchmedo auto-restart -d /usr/src/app/ -p '*.py' --ignore-patterns='/usr/src/app/data' --recursive -- celery -A app worker -E --pool=eventlet -Q trainer_queue --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
 
-  task-runner:
-    image: edge-ai-tuning-kit.backend.engine:${APP_VER}-DEV
-    container_name: edge-ai-tuning-kit.backend.task-runner
-    hostname: task-runner
+  deployment-node:
+    build:
+      context: ./backend/workers/llm-finetuning-node/deployment
+      dockerfile: Dockerfile
+    image: edge-ai-tuning-kit.backend.deployment-node:${APP_VER}-DEV
+    container_name: edge-ai-tuning-kit.backend.llm-finetuning.deployment-node
+    hostname: deployment-node
     restart: always
     group_add:
       - ${RENDER_GROUP_ID:-992}
@@ -112,19 +137,108 @@ services:
     networks:
       - app-network
     environment:
-      USE_XETLA: "OFF"
+      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
+      SYCL_CACHE_PERSISTENT: 1
       SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS: 1
+      HF_HOME: ./data/cache
+      HF_TOKEN: $HF_TOKEN
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - cache-data:/usr/src/app/data
+      - ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices:/usr/src/app/assets/deployment/microservices
+      - ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/rag-toolkit:/usr/src/app/assets/deployment/rag-toolkit
+      - ./backend/workers/llm-finetuning-node/deployment:/usr/src/app
+    devices:
+      - /dev/dri:/dev/dri
+    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+
+  document-node:
+    build:
+      context: ./backend/workers/llm-finetuning-node/documents
+      dockerfile: Dockerfile
+    image: edge-ai-tuning-kit.backend.document-node:${APP_VER}-DEV
+    container_name: edge-ai-tuning-kit.backend.llm-finetuning.document-node
+    hostname: document-node
+    restart: always
+    group_add:
+      - ${RENDER_GROUP_ID:-992}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
       CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       HF_HOME: ./data/cache
       HF_TOKEN: $HF_TOKEN
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
     volumes:
       - cache-data:/usr/src/app/data
-      - ./backend/worker:/usr/src/app
-      - ./deployment:/usr/src/app/assets/deployment
+      - ./backend/workers/llm-finetuning-node/documents:/usr/src/app
     devices:
       - /dev/dri:/dev/dri
-    command: "watchmedo auto-restart -d /usr/src/app/ -p '*.py' --ignore-patterns='/usr/src/app/data' --recursive -- celery -A app worker -E --pool=eventlet -Q default_queue --concurrency=5 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+
+  telemetry-node:
+    build:
+      context: ./backend/workers/llm-finetuning-node/telemetry
+      dockerfile: Dockerfile
+    image: edge-ai-tuning-kit.backend.telemetry-node:${APP_VER}-DEV
+    container_name: edge-ai-tuning-kit.backend.llm-finetuning.telemetry-node
+    hostname: telemetry-node
+    restart: always
+    group_add:
+      - ${RENDER_GROUP_ID:-992}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
+      HF_HOME: ./data/cache
+      HF_TOKEN: $HF_TOKEN
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - cache-data:/usr/src/app/data
+      - ./backend/workers/llm-finetuning-node/telemetry:/usr/src/app
+    devices:
+      - /dev/dri:/dev/dri
+    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+
+  training-node:
+    build: 
+      context: ./backend/workers/llm-finetuning-node/training
+      dockerfile: Dockerfile
+    image: edge-ai-tuning-kit.backend.training-node:${APP_VER}-DEV
+    container_name: edge-ai-tuning-kit.backend.llm-finetuning.training-node
+    hostname: training-node
+    restart: always
+    group_add:
+      - ${VIDEO_GROUP_ID:-44}
+      - ${RENDER_GROUP_ID:-992}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    shm_size: 16gb
+    environment:
+      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
+      HF_HOME: ./data/cache
+      HF_TOKEN: $HF_TOKEN
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - /dev:/dev:rw
+      - cache-data:/usr/src/app/data
+      - ./backend/workers/llm-finetuning-node/training:/usr/src/app
+    devices:
+      - /dev/dri:/dev/dri
+    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
 
   postgres:
     image: postgres:16
@@ -137,11 +251,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'",
-        ]
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'" ]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -157,12 +267,10 @@ services:
       REDIS_PASSWORD: $REDIS_PASSWORD
     networks:
       - app-network
+    ports:
+      - 6379:6379
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "redis-cli --no-auth-warning -a $REDIS_PASSWORD ping | grep PONG",
-        ]
+      test: [ "CMD-SHELL", "redis-cli --no-auth-warning -a $REDIS_PASSWORD ping | grep PONG" ]
       interval: 10s
       timeout: 3s
       retries: 3

@@ -61,7 +61,7 @@ async def generate_qa_from_pdf(service: Annotated[DataService, Depends()], datas
     return await service.generate_qa(dataset_id, project_type, num_generations, files)
 
 @router.post("/generate_document_qa", status_code=200)
-async def generate_qa_from_pdf(service: Annotated[DataService, Depends()], dataset_id: int, source_filename: str, project_type: str, num_generations: int = 5):
+async def generate_qa_from_document(service: Annotated[DataService, Depends()], dataset_id: int, source_filename: str, project_type: str, num_generations: int = 5):
     return await service.generate_document_qa(dataset_id, source_filename, project_type, num_generations)
 
 @router.post("/stop_data_generation/{id}", status_code=200)

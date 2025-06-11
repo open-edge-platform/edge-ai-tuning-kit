@@ -10,7 +10,7 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
-ID_MAX=2147483647
+ID_MAX = 2147483647
 
 
 def is_storage_available(partitions="/"):
@@ -20,13 +20,15 @@ def is_storage_available(partitions="/"):
         available_gb = partition_usage.free / (1024 ** 3)
         logger.info(f"Available GB: {available_gb}")
         if available_gb <= 60:
-            logger.warning(f"Not enough storage available to create task: {available_gb}")
+            logger.warning(
+                f"Not enough storage available to create task: {available_gb}")
             return False
         else:
             return True
     except Exception as error:
         logger.error(f"Error when getting the storage space: {error}")
         return False
+
 
 def remove_dir(data_dir: str):
     if os.path.isdir(data_dir):
@@ -35,17 +37,22 @@ def remove_dir(data_dir: str):
     else:
         logger.warning(f"Unable to find & remove directory: {data_dir}")
 
+
 def validate_model_filter(model, filter):
     model_columns = set(c.name for c in model.__table__.columns)
     result = {"status": True, "message": "Valid keys"}
-    
+
     # Check if all keys in filter_dict exist in the model's columns
     for key in filter:
         if key not in model_columns:
-            result = {"status": False, "message": "Key does not exist in table"}
-            break 
+            result = {
+                "status": False,
+                "message": "Key does not exist in table"
+            }
+            break
 
     return result
+
 
 def export_to_openvino(task_id, task="text-generation-with-past", weight_format="int4", framework="pt"):
     model_path = f"./data/tasks/{task_id}/models/models"

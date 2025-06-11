@@ -1,15 +1,17 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0 
 
-import json
+import os
+import shutil
 import logging
 from fastapi import Request
-from sqlalchemy import func
+
 from routes.utils import get_db
 from models.tasks import TasksModel, RunningTaskModel, TasksStatus
 from utils.common import validate_model_filter
 
 logger = logging.getLogger(__name__)
+PROJECT_PATH = "./data/tasks"
 
 
 def task_helper(task: TasksModel):
@@ -17,17 +19,18 @@ def task_helper(task: TasksModel):
         "id": task.id,
         "configs": task.configs,
         "created_date": task.created_date,
-        "deployment":task.deployment,
-        "download_progress":task.download_progress,
-        "download_status":task.download_status,
-        "modified_date":task.modified_date,
-        "inference_configs":task.inference_configs,
-        "project_id":task.project_id,
-        "results":task.results,
-        "celery_task_id":task.celery_task_id,
-        "status":task.status,
-        "type":task.type,
+        "deployment": task.deployment,
+        "download_progress": task.download_progress,
+        "download_status": task.download_status,
+        "modified_date": task.modified_date,
+        "inference_configs": task.inference_configs,
+        "project_id": task.project_id,
+        "results": task.results,
+        "celery_task_id": task.celery_task_id,
+        "status": task.status,
+        "type": task.type,
     }
+
 
 class TaskService:
     def __init__(self, request: Request) -> None:
@@ -36,7 +39,7 @@ class TaskService:
 
     async def get_all_tasks(self, filter={}):
         results = []
-        
+
         query = self.db.query(TasksModel)
         if filter:
             filter_result = validate_model_filter(TasksModel, filter)
@@ -48,7 +51,6 @@ class TaskService:
             results.append(task_helper(task))
 
         return results
-
 
     async def get_task(self, id: int):
         result = self.db.query(TasksModel).filter(TasksModel.id == id).first()
@@ -73,8 +75,7 @@ class TaskService:
                 }
             if task.results and "results" in data:
                 data["results"] = {**task.results, **data["results"]}
-            
-            
+
             try:
                 result = self.db.query(TasksModel).filter(
                     TasksModel.id == id).update(data)
@@ -131,49 +132,25 @@ class TaskService:
             }
 
     async def delete_task(self, id):
-        task_data = {
-            "status": TasksStatus.REVOKED.value
-        }
-        result = await self.update_task(id, task_data)
-        return result
+        tasks = self.db.query(TasksModel).filter(
+            TasksModel.id == id).all()
 
+        for task in tasks:
+            self.db.delete(task)
 
-class RunningTaskService:
-    def __init__(self, request: Request) -> None:
-        self.db = get_db(request)
-        self.task_service = TaskService(request)
-        self.request = request
-
-    async def get_running_task(self):
+        if os.path.isdir(f"{PROJECT_PATH}/{id}"):
+            logger.debug(f"Removing the model folder for id: {id}")
+            shutil.rmtree(f"{PROJECT_PATH}/{id}")
         try:
-            running_task = self.db.query(RunningTaskModel).first()
-            result = await self.task_service.get_task(running_task.task_id)
-            return result
-        except Exception as error:
-            logger.error(f"Failed to running task. Error: {error}")
-            return None
-
-    async def update_running_task(self, data: dict):
-        try:
-            try:
-                result = self.db.query(RunningTaskModel).filter(RunningTaskModel.id == 1).update(data)
-                self.db.commit()
-            except:
-                self.db.rollback()
-                return {
-                    'status': False,
-                    'data': None,
-                    'message': "Fail to update task"
-                }
-            return {
-                'status': True,
-                'data': data['celery_task_id'],
-                'message': f"Running task updated successfully with ID: {data['celery_task_id']}"
-            }
-        except Exception as error:
-            logger.error(f"Failed to update task. Error: {error}")
+            self.db.commit()
+        except:
+            self.db.rollback()
             return {
                 'status': False,
                 'data': None,
-                'message': error
+                'message': "Fail to delete task"
             }
+        return {
+            'status': True,
+            'data': tasks
+        }
