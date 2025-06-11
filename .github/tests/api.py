@@ -204,7 +204,7 @@ def test_get_generated_dataset(test_create_project):
     project_id = test_create_project["data"]
     
     def check_dataset_generated(response):
-        return len(response.json()['data']) > 0
+        return len(response.json()['data']) >= 5
     
     is_test_pass = wait_for_condition(
         f'/v1/datasets/{project_id}/data', 
@@ -213,6 +213,28 @@ def test_get_generated_dataset(test_create_project):
     )
     
     assert is_test_pass == True
+
+
+def test_acknowledge_dataset(test_create_project):
+    """Test acknowledging the dataset generation."""
+    project_id = test_create_project["data"]
+    
+    response = api_request('get', f'/v1/datasets/{project_id}/data')
+    assert response.status_code == 200
+
+    update_count = 0
+    for item in response.json()['data']:
+        response = api_request('patch', f'/v1/data/{item["id"]}', json={
+            "isGenerated": False
+        })
+        assert response.status_code == 200, f"Failed to update data item {item['id']}"
+        update_count += 1
+
+    # Verify that the dataset is acknowledged
+    response = api_request('get', f'/v1/datasets/{project_id}/data/acknowledge_count')
+    assert response.status_code == 200
+    assert response.json()['data'] == update_count, \
+        f"Expected {update_count} items to be acknowledged, but got {response.json()['data']}"
 
 
 # Training tests
