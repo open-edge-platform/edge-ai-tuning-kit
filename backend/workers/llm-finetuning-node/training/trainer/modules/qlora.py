@@ -8,9 +8,10 @@ from omegaconf import OmegaConf
 
 import torch
 import torch.distributed as dist
+import intel_extension_for_pytorch
 from trl import SFTTrainer, SFTConfig
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model, AutoPeftModelForCausalLM
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, EarlyStoppingCallback, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, EarlyStoppingCallback, BitsAndBytesConfig
 from intel_extension_for_pytorch.llm.functional.utils import ipex_update_causal_mask
 
 from utils.common import is_rank_zero
@@ -60,6 +61,7 @@ class QLORATrainer:
             tokenizer.pad_token_id = tokenizer.eos_token_id
 
         world_size = int(os.getenv("WORLD_SIZE", 1))
+        local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
         if quant_type == "nf4":
             if world_size > 1:
@@ -81,15 +83,21 @@ class QLORATrainer:
             bnb_config = BitsAndBytesConfig(load_in_8bit=True)
         else:
             raise ValueError(f"Unsupported quantization type: {quant_type}")
+        
+        device_map={'':torch.xpu.current_device()} if self.device == 'xpu' else None
+        if world_size > 1:
+            device_map = f"xpu:{local_rank}"
 
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=dtype,
+            device_map=device_map,
             quantization_config=bnb_config,
         )
 
-        # model.gradient_checkpointing_enable()
-        # model = prepare_model_for_kbit_training(model)
+        if world_size == 1:
+            print(f"Enabling gradient checkpointing for model {model_name} ...")
+            model = prepare_model_for_kbit_training(model)
 
         return model, tokenizer
 
@@ -123,6 +131,7 @@ class QLORATrainer:
     def train(self, train_dataset, eval_dataset, training_args, callbacks=[]):
         logger.info("Initializing trainer ...")
         ipex_update_causal_mask(self.model)
+        
         self.trainer = SFTTrainer(
             model=self.model,
             train_dataset=train_dataset,
@@ -178,6 +187,12 @@ def sanity_check(config):
 
 
 def main(args):
+    os.environ['CCL_PROCESS_LAUNCHER'] = 'none'
+    local_rank = int(os.getenv("LOCAL_RANK", "0"))
+    world_size = int(os.getenv("WORLD_SIZE", "1"))
+    os.environ['CCL_LOCAL_SIZE'] = str(world_size)
+    os.environ['CCL_LOCAL_RANK'] = str(local_rank)
+
     logger.info(f"Loading config: {args.config}")
     config = OmegaConf.load(args.config)
     sanity_check(config)
@@ -218,7 +233,9 @@ def main(args):
 
     # Modify max_length in training_args
     if hasattr(training_args, "max_length"):
-        logger.info(f"Max token length is set to {dataset_args.max_seq_length}")
+        logger.info(
+            f"Max token length is set to {dataset_args.max_seq_length}")
+        training_args.max_length = dataset_args.max_seq_length
 
     # Setting packing to False
     if hasattr(training_args, "packing"):
