@@ -1,5 +1,5 @@
 // Copyright (C) 2025 Intel Corporation
-// SPDX-License-Identifier: Apache-2.0 
+// SPDX-License-Identifier: Apache-2.0
 
 "use client";
 
@@ -82,9 +82,11 @@ export function AddPairContent({
   };
 
   const addMessage = () => {
-    const lastMessage = messages[messages.length - 1];
-    const newRole = lastMessage.role === "user" ? "assistant" : "user";
-    setMessages([...messages, { role: newRole, content: "" }]);
+    setMessages([
+      ...messages,
+      { role: "user", content: "" },
+      { role: "assistant", content: "" },
+    ]);
   };
 
   const updateMessage = (index: number, content: string) => {
@@ -115,8 +117,8 @@ export function AddPairContent({
   };
 
   return (
-    <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
-      <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-md">
+    <>
+      <div className="flex items-start gap-2 p-3 mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-md">
         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
         <div>
           <p className="text-xs text-blue-800 dark:text-blue-300 font-medium">
@@ -130,100 +132,113 @@ export function AddPairContent({
           </p>
         </div>
       </div>
-
-      <div className="space-y-3">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className="bg-slate-50 dark:bg-slate-800 border rounded-md p-3"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                {message.role === "user" ? (
-                  <MessageSquare size={16} className="text-blue-600" />
-                ) : (
-                  <Bot size={16} className="text-blue-600" />
+      <div className="space-y-4 max-h-[calc(100vh-32rem)] overflow-y-auto pr-2 mb-4">
+        <div className="space-y-3">
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className="bg-slate-50 dark:bg-slate-800 border rounded-md p-3"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  {message.role === "user" ? (
+                    <MessageSquare size={16} className="text-blue-600" />
+                  ) : (
+                    <Bot size={16} className="text-blue-600" />
+                  )}
+                  <Label className="text-sm font-medium capitalize">
+                    {message.role}{" "}
+                    {message.role === "user" ? "Message" : "Response"}
+                  </Label>
+                </div>
+                {messages.length > 2 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeMessage(index)}
+                    className="h-6 w-6 text-slate-500 hover:text-red-500"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
                 )}
-                <Label className="text-sm font-medium capitalize">
-                  {message.role}{" "}
-                  {message.role === "user" ? "Message" : "Response"}
-                </Label>
               </div>
-              {messages.length > 2 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeMessage(index)}
-                  className="h-6 w-6 text-slate-500 hover:text-red-500"
-                >
-                  <Trash2 size={14} />
-                </Button>
+              <div>
+                <Tabs defaultValue="write" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-2 h-9 bg-slate-100 dark:bg-slate-800">
+                    <TabsTrigger
+                      value="write"
+                      className="flex items-center gap-1.5"
+                    >
+                      <FileText size={14} />
+                      <span>Write</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="preview"
+                      className="flex items-center gap-1.5"
+                    >
+                      <Eye size={14} />
+                      <span>Preview</span>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="write" className="mt-0">
+                    <textarea
+                      placeholder={`Enter ${message.role} ${
+                        message.role === "user" ? "message" : "response"
+                      } here...`}
+                      value={message.content}
+                      onChange={(e) => updateMessage(index, e.target.value)}
+                      className={`w-full rounded-md border px-3 py-2 text-base shadow-xs outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 ${
+                        isMultiTurn
+                          ? "min-h-[40px] max-h-[100px]"
+                          : "min-h-[100px] max-h-[200px]"
+                      } resize-none transition-all ${
+                        isValidating && message.content.trim() === ""
+                          ? "border-red-500 ring-red-200"
+                          : "focus:ring-blue-100"
+                      }`}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="preview" className="mt-0">
+                    <div className="border rounded-md p-3 bg-white dark:bg-gray-900 min-h-[100px]">
+                      {message.content.trim() ? (
+                        <MarkdownRenderer content={message.content} />
+                      ) : (
+                        <p className="text-gray-400 dark:text-gray-500 italic">
+                          Nothing to preview
+                        </p>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+              {isValidating && message.content.trim() === "" && (
+                <div className="flex items-center text-red-500 text-xs gap-1 mt-1">
+                  <AlertCircle size={12} />
+                  <span>
+                    {message.role === "user"
+                      ? "User message"
+                      : "Assistant response"}{" "}
+                    is required
+                  </span>
+                </div>
               )}
             </div>
-            <div>
-              <Tabs defaultValue="write" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-2 h-9 bg-slate-100 dark:bg-slate-800">
-                  <TabsTrigger value="write" className="flex items-center gap-1.5">
-                    <FileText size={14} />
-                    <span>Write</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="preview" className="flex items-center gap-1.5">
-                    <Eye size={14} />
-                    <span>Preview</span>
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="write" className="mt-0">
-                  <textarea
-                    placeholder={`Enter ${message.role} ${message.role === "user" ? "message" : "response"} here...`}
-                    value={message.content}
-                    onChange={(e) => updateMessage(index, e.target.value)}
-                    className={`w-full rounded-md border px-3 py-2 text-base shadow-xs outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100 ${
-                      isMultiTurn ? 'min-h-[40px] max-h-[100px]' : 'min-h-[100px] max-h-[200px]'
-                    } resize-none transition-all ${
-                      isValidating && message.content.trim() === "" ? "border-red-500 ring-red-200" : "focus:ring-blue-100"
-                    }`}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="preview" className="mt-0">
-                  <div className="border rounded-md p-3 bg-white dark:bg-gray-900 min-h-[100px]">
-                    {message.content.trim() ? (
-                      <MarkdownRenderer content={message.content} />
-                    ) : (
-                      <p className="text-gray-400 dark:text-gray-500 italic">Nothing to preview</p>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-            {isValidating && message.content.trim() === "" && (
-              <div className="flex items-center text-red-500 text-xs gap-1 mt-1">
-                <AlertCircle size={12} />
-                <span>
-                  {message.role === "user"
-                    ? "User message"
-                    : "Assistant response"}{" "}
-                  is required
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addMessage}
-          className="flex items-center gap-1"
-        >
-          <Plus size={16} />
-          Add{" "}
-          {messages[messages.length - 1]?.role === "user"
-            ? "Assistant Response"
-            : "User Message"}
-        </Button>
+          ))}
+        </div>
+        <div className="flex justify-between items-center mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addMessage}
+            className="flex items-center gap-1"
+          >
+            <Plus size={16} />
+            Add Conversation
+          </Button>
+        </div>
       </div>
-
       <div className="flex justify-between gap-2">
         {isMultiTurn && (
           <Button
@@ -250,6 +265,6 @@ export function AddPairContent({
           </Button>
         </div>
       </div>
-    </div>
+    </>
   );
 }

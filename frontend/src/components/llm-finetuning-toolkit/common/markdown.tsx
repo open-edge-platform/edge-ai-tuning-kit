@@ -1,9 +1,10 @@
 // Copyright (C) 2025 Intel Corporation
-// SPDX-License-Identifier: Apache-2.0 
+// SPDX-License-Identifier: Apache-2.0
 
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "@/styles/markdown.css";
 
 interface MarkdownRendererProps {
@@ -16,10 +17,15 @@ interface MarkdownRendererProps {
  * @param content - The markdown content to render
  * @param className - Additional CSS classes to apply to the container
  */
-export function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  className = "",
+}: MarkdownRendererProps) {
   return (
     <div className={`markdown-content ${className}`}>
-      <ReactMarkdown>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[[remarkGfm]]}>
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }

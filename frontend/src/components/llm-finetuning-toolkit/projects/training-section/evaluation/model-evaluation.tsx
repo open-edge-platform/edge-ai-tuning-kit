@@ -33,7 +33,6 @@ import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChat } from "@ai-sdk/react";
 import { MarkdownRenderer } from "@/components/llm-finetuning-toolkit/common/markdown";
-import "@/styles/markdown.css"; // Import markdown styling
 import {
   useStartInferenceService,
   useStopInferenceService,
@@ -116,8 +115,14 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
     [task.id, systemPrompt, currentModelID, maxTokens, temperature]
   );
 
-  const { messages, input, handleInputChange, handleSubmit, setMessages } =
-    useChat(chatConfig);
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    setMessages,
+    status,
+  } = useChat(chatConfig);
 
   // Scroll to bottom of messages
   useEffect(() => {
@@ -185,8 +190,6 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
 
   // Watch for model ID updates when waiting for service to start
   useEffect(() => {
-    console.log(modelID);
-
     if (modelID && evaluationState === "WAIT") {
       try {
         // If modelID.status is false, keep waiting
@@ -393,16 +396,15 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-full">
-      {/* Chat Column - Takes more space */}
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 h-[calc(100vh-4rem)]">
       <div
-        className={`flex flex-col ${
+        className={`flex flex-col h-[calc(100vh-4rem)] ${
           showSettings
             ? "col-span-1 md:col-span-2 lg:col-span-3"
             : "col-span-1 md:col-span-3 lg:col-span-4"
         }`}
       >
-        <Card className="border-2 flex-1 flex flex-col max-h-full">
+        <Card className="border-2 flex-1 flex flex-col h-full">
           <CardHeader className="pb-2">
             <div className="flex items-center">
               <Button
@@ -447,7 +449,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 p-0 flex flex-col h-[calc(100%-130px)]">
+          <CardContent className="flex-1 p-0 flex flex-col">
             {evaluationState !== "READY" ? (
               <div className="px-6 py-4 flex-1 flex items-center justify-center">
                 {renderEvaluationState()}
@@ -459,7 +461,6 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                   className="flex-1 overflow-y-auto mb-4 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
                   style={{
                     scrollBehavior: "smooth",
-                    maxHeight: "calc(100vh - 300px)",
                   }}
                 >
                   {messages
@@ -564,7 +565,39 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                       </div>
                     </div>
                   )}
-
+                  {status === "submitted" && (
+                    <div className="flex mb-4 justify-start">
+                      <Avatar className="h-8 w-8 mr-2 flex-shrink-0 bg-green-500 text-white">
+                        <AvatarFallback className="bg-green-500 text-white">
+                          <Bot className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="px-4 py-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-foreground border border-green-200 dark:border-green-800">
+                        <div className="flex space-x-1 items-center h-6">
+                          <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce [animation-delay:-0.3s]"></div>
+                          <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce [animation-delay:-0.15s]"></div>
+                          <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce"></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {status === "error" && (
+                    <div className="flex mb-4 justify-start">
+                      <Avatar className="h-8 w-8 mr-2 flex-shrink-0 bg-red-500 text-white">
+                        <AvatarFallback className="bg-red-500 text-white">
+                          <Bot className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="px-4 py-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-foreground border border-red-200 dark:border-red-800">
+                        <div className="flex items-center">
+                          <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-400" />
+                          <span className="text-sm">
+                            Error generating response. Please try again.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
                 <div className="flex items-center gap-2 mt-auto">
@@ -597,7 +630,14 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                     >
                       <RefreshCw className="h-4 w-4" />
                     </Button>
-                    <Button type="submit" disabled={!input.trim()}>
+                    <Button
+                      type="submit"
+                      disabled={
+                        !input.trim() ||
+                        status === "streaming" ||
+                        status === "submitted"
+                      }
+                    >
                       <Send className="h-4 w-4" />
                     </Button>
                   </form>
@@ -610,8 +650,8 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
 
       {/* Settings Column - Shows when toggled */}
       {showSettings && (
-        <div className="md:col-span-1 animate-in fade-in duration-200">
-          <Card className="border-2 max-h-full">
+        <div className="md:col-span-1 animate-in fade-in duration-200 h-[calc(100vh-4rem)]">
+          <Card className="border-2 h-full overflow-y-auto">
             <CardHeader>
               <CardTitle className="text-lg">Model Settings</CardTitle>
               <CardDescription>
@@ -633,7 +673,8 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                       onClick={() => handleStartChat("cpu")}
                       disabled={
                         evaluationState === "START" ||
-                        evaluationState === "WAIT"
+                        evaluationState === "WAIT" ||
+                        evaluationState === "READY"
                       }
                     >
                       <Cpu className="h-4 w-4 mr-2" /> CPU
@@ -645,7 +686,8 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                       onClick={() => handleStartChat("xpu")}
                       disabled={
                         evaluationState === "START" ||
-                        evaluationState === "WAIT"
+                        evaluationState === "WAIT" ||
+                        evaluationState === "READY"
                       }
                     >
                       <Cpu className="h-4 w-4 mr-2" /> GPU
