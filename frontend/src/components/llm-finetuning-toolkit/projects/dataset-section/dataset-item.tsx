@@ -1,5 +1,5 @@
 // Copyright (C) 2025 Intel Corporation
-// SPDX-License-Identifier: Apache-2.0 
+// SPDX-License-Identifier: Apache-2.0
 
 "use client";
 
@@ -11,7 +11,6 @@ import { AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { MarkdownRenderer } from "@/components/llm-finetuning-toolkit/common/markdown";
-import "@/styles/markdown.css"; // Import markdown styling for consistent rendering
 import {
   AlertDialog,
   AlertDialogAction,
@@ -207,9 +206,7 @@ export function DatasetItem({
                     ? "User"
                     : "Assistant"}
                 </Badge>
-                <div className="markdown-content">
-                  <MarkdownRenderer content={message.content} />
-                </div>
+                <MarkdownRenderer content={message.content} />
               </div>
             ))}
             <div className="flex justify-end mt-2">
@@ -287,9 +284,7 @@ export function DatasetItem({
                     ? "User"
                     : "Assistant"}
                 </Badge>
-                <div className="markdown-content">
-                  <MarkdownRenderer content={message.content} />
-                </div>
+                <MarkdownRenderer content={message.content} />
               </div>
             ))}
           </div>
@@ -341,9 +336,7 @@ export function DatasetItem({
                           ? ` (Turn ${Math.floor(index / 2) + 2})`
                           : ""}
                       </Badge>
-                      <div className="markdown-content">
-                        <MarkdownRenderer content={message.content} />
-                      </div>
+                      <MarkdownRenderer content={message.content} />
                     </div>
                   ))}
                 </div>
