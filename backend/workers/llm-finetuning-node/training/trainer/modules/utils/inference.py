@@ -98,9 +98,11 @@ class OVInference:
     def _generate_augmented_sentence(self, sentence: str, debug=True):
         SYNTHETIC_DATASET_GENERATION_TEMPLATE = "Rewrite the sentence while preserving its original meaning: {sentence}\nRespond only with the revised sentence."
         prompt = SYNTHETIC_DATASET_GENERATION_TEMPLATE.format(
-            sentence=sentence)
+            sentence=sentence
+        )
+
         results = self.generate(
-            system_message="You are a helpful assistant.",
+            system_message="Your task is to rewrite the sentence while preserving its original meaning. If the sentence has specific formatting, such as code blocks, lists, or special characters, ensure that the formatting is preserved in the rewritten sentence.",
             user_message=prompt
         )
 
@@ -112,6 +114,9 @@ class OVInference:
         return results
 
     def generate_synthetic_dataset(self, dataset_path: str, save_path: str, percentage=10):
+        '''
+        Generate synthetic user message data from the original dataset
+        '''
         synthetic_data_list = []
         with open(dataset_path, "r") as f:
             data = f.read()
@@ -124,12 +129,12 @@ class OVInference:
             synthetic_conversation = {"messages": []}
             for conversation in item['messages']:
                 message = ""
-                print(conversation["role"])
                 if conversation["role"] == "user":
-                    message = conversation['content']
-                elif conversation["role"] == "assistant":
                     message = self._generate_augmented_sentence(
-                        conversation['content'])
+                        conversation['content']
+                    )
+                elif conversation["role"] == "assistant":
+                    message = conversation['content']
                 else:
                     raise NotImplementedError(
                         "Only user and assistant messages are supported."
@@ -149,7 +154,7 @@ class OVInference:
     def _load_sematic_textual_similarity_model(self, model_path_or_name: str = 'sentence-transformers/all-MiniLM-L6-v2'):
         return SentenceTransformer(model_path_or_name)
 
-    def evaluate_test_dataset(self, test_dataset_path: str, system_message: str):
+    def evaluate_test_dataset(self, test_dataset_path: str, system_message: str, similarity_threshold: float = 0.75):
         test_result_list = []
         dataset_dir = os.path.dirname(test_dataset_path)
         result_path = f"{dataset_dir}/model_evaluation.json"
@@ -198,24 +203,29 @@ class OVInference:
         )
         similarity_result_list = []
         evaluate_result_list = []
+
         for ori_msg, finetuned_msg in evaluate_data:
             ori_embedding = semantic_model.encode(
                 ori_msg, convert_to_tensor=True)
             finetuned_embedding = semantic_model.encode(
                 finetuned_msg, convert_to_tensor=True)
-            semantic_textual_similarity = util.pytorch_cos_sim(
-                ori_embedding, finetuned_embedding)
-            similarity_result_list.append(semantic_textual_similarity)
+            cosine_tensor = util.pytorch_cos_sim(
+                ori_embedding, finetuned_embedding
+            )
+            cosine_score = round(float(cosine_tensor.cpu().numpy()[0][0]), 2)
             evaluate_result_list.append(
                 {
                     "original": ori_msg,
                     "finetuned": finetuned_msg,
-                    "similarity": round(float(semantic_textual_similarity.cpu().numpy()[0][0]), 2)
+                    "similarity": cosine_score
                 }
             )
 
-        mean_similarity = sum(similarity_result_list) / \
-            len(similarity_result_list)
+            if cosine_score >= similarity_threshold:
+                similarity_result_list.append(True)
+            else:
+                similarity_result_list.append(False)
+
+        mean_similarity = round((sum(similarity_result_list) / len(similarity_result_list)), 2)
         
-        mean_similarity = round(float(mean_similarity.cpu().numpy()[0][0]), 2)
         return mean_similarity, evaluate_result_list

@@ -50,9 +50,9 @@ def generate_synthetic_dataset(args):
     else:
         logger.info("Synthetic Generation is disabled")
         TaskCallback.update_task_data(
-            task_id=config.task_id,
+            task_id=config.logging_args.task_id,
             data={
-                "status": "Creating evaluation and testing subset from the original dataset"
+                "status": "Creating evaluation and testing subset"
             }
         )
         train_dataset_path = config.dataset_args.train_dataset_path
