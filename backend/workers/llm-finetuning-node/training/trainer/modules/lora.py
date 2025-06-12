@@ -8,6 +8,7 @@ from omegaconf import OmegaConf
 
 import torch
 import torch.distributed as dist
+import intel_extension_for_pytorch
 from trl import SFTTrainer, SFTConfig
 from peft import LoraConfig, get_peft_model, AutoPeftModelForCausalLM
 from transformers import AutoTokenizer, AutoModelForCausalLM, EarlyStoppingCallback
@@ -68,7 +69,9 @@ class LORATrainer:
             target_modules='all-linear',
             task_type="CAUSAL_LM"
         )
-        return get_peft_model(self.model, lora_config)
+
+        model = get_peft_model(self.model, lora_config)
+        return model
 
     def _save_merge_model(self, adapter_path: str, save_path: str):
         logger.info("Merging LORA adapter ...")
@@ -87,6 +90,7 @@ class LORATrainer:
 
     def train(self, train_dataset, eval_dataset, training_args, callbacks=[]):
         logger.info("Initializing trainer ...")
+
         self.trainer = SFTTrainer(
             model=self.model,
             train_dataset=train_dataset,
@@ -142,6 +146,12 @@ def sanity_check(config):
 
 
 def main(args):
+    os.environ['CCL_PROCESS_LAUNCHER'] = 'none'
+    local_rank = int(os.getenv("LOCAL_RANK", "0"))
+    world_size = int(os.getenv("WORLD_SIZE", "1"))
+    os.environ['CCL_LOCAL_SIZE'] = str(world_size)
+    os.environ['CCL_LOCAL_RANK'] = str(local_rank)
+
     logger.info(f"Loading config: {args.config}")
     config = OmegaConf.load(args.config)
     sanity_check(config)
@@ -183,6 +193,7 @@ def main(args):
     # Modify max_length in training_args
     if hasattr(training_args, "max_length"):
         logger.info(f"Max token length is set to {dataset_args.max_seq_length}")
+        training_args.max_length = dataset_args.max_seq_length
 
     # Setting packing to False
     if hasattr(training_args, "packing"):
