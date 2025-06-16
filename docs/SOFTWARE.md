@@ -1,16 +1,54 @@
 # Edge AI Tuning Kit
 This document provides comprehensive details about the software and its supported functionalities.
 
-## Supported Model
-| Model | Training | Inferencing |
-|-------|----------|-------------|
-| Mistral-7B-Instruct-v0.3 | ✓ | ✓ |
-| Meta-Llama-3.1-8B-Instruct | ✗ | ✗ |
-| Meta-Llama-3-8B-Instruct | ✓ | ✓ |
-| Qwen2-7B-Instruct | ✓ | ✓ |
-| gemma-2-2b-it | ✓ | ✗ |
-| Llama-2-7b-chat-hf | ✓ | ✓ |
-| Phi-3-mini-4k-instruct | ✓ | ✓ |
+## Validated Models
+
+This document provides an overview of the AI models that have been tested and confirmed to work with the Edge AI Tuning Kit. It includes compatibility tables that indicate which models support specific training methods such as LoRA and QLoRA across different Intel hardware configurations. This section helps users quickly identify which models and training approaches are supported, ensuring efficient and successful model fine-tuning on their chosen hardware.
+
+> **⚠️ Known Issue:**
+> DeepSeek models may report low accuracy metrics after training. This is expected behavior and will not affect the actual performance or quality of model outputs.
+
+
+<details open>
+<summary><strong>LoRA Training Support:</strong></summary>
+
+The table below shows which models support LoRA (Low-Rank Adaptation) training across different Intel hardware configurations. LoRA training allows for efficient fine-tuning of large language models with minimal memory overhead.
+
+| Model Family | Model | A770 Single | A770 Multi | B580 Single | B580 Multi |
+|:-------------|:------|:-----------:|:----------:|:-----------:|:----------:|
+| **Llama** | Llama-3.2-1B-Instruct | ✅ | ✅ | ✅ | ✅ |
+|  | Llama-3.2-3B-Instruct | ✅ | ✅ | ✅ | ✅ |
+| **Qwen** | Qwen2.5-0.5B-Instruct | ✅ | ✅ | ✅ | ✅ |
+|  | Qwen2.5-1.5B-Instruct | ✅ | ✅ | ✅ | ✅ |
+|  | Qwen2.5-3B-Instruct | ✅ | ✅ | ❌ | ✅ |
+| **DeepSeek** | DeepSeek-R1-Distill-Qwen-1.5B | ✅ | ✅ | ❌ | ✅ |
+
+</details>
+
+---
+
+<details open>
+<summary><strong>QLoRA Training Support:</strong></summary>
+
+QLoRA (Quantized Low-Rank Adaptation) extends LoRA by using quantization to further reduce memory requirements, enabling fine-tuning of even larger models on consumer hardware. The compatibility matrix below shows which models can be trained with QLoRA on different Intel GPUs.
+
+| Model Family | Model | A770 | B580 |
+|:-------------|:------|:----:|:----:|
+| **Llama** | Llama-3.1-8B-Instruct | ✅ | ✅ |
+|  | Llama-3.2-1B-Instruct | ✅ | ✅ |
+|  | Llama-3.2-3B-Instruct | ✅ | ✅ |
+| **Qwen** | Qwen2.5-0.5B-Instruct | ✅ | ✅ |
+|  | Qwen2.5-1.5B-Instruct | ✅ | ✅ |
+|  | Qwen2.5-3B-Instruct | ✅ | ✅ |
+|  | Qwen2.5-7B-Instruct | ✅ | ❌ |
+| **DeepSeek** | DeepSeek-R1-Distill-Llama-8B | ✅ | ✅ |
+|  | DeepSeek-R1-Distill-Qwen-1.5B | ✅ | ✅ |
+|  | DeepSeek-R1-Distill-Qwen-7B | ✅ | ✅ |
+| **Mistral** | Mistral-7B-Instruct-v0.3 | ✅ | ✅ |
+
+**Note:** QLoRA training is available on single GPU configurations only. Multi-GPU training is not supported for QLoRA.
+
+</details>
 
 ## Training Parameters Guide
 This document presents the key training parameters for training a Large-Language Model (LLM), along with their default values and descriptions. These parameters play a crucial role in controlling the training process, affecting factors such as computational memory efficiency, training speed, and model accuracy. The table covers important parameters like training batch size, evaluation batch size, learning rate, learning rate scheduler type, gradient accumulation steps, number of training epochs, and optimizer algorithms. Understanding and tuning these parameters appropriately can significantly impact the model's training time and final performance.
