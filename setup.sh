@@ -6,7 +6,7 @@ set -e
 
 APP_VERSION=2025.1
 SERVER_IP=backend
-COMMIT_ID=3b2f340
+COMMIT_ID=cfd76fd
 RENDER_GROUP_ID=$(getent group render | cut -d: -f3)
 export RENDER_GROUP_ID
 DOCKER_GROUP_ID=$(getent group docker | cut -d: -f3)
@@ -200,10 +200,12 @@ setup_app() {
             echo -e "- Unable to clone the repository. Please check your internet connection."
             exit 1
         fi
-        cd thirdparty/edge-developer-kit-reference-scripts || exit 1
-        git checkout $COMMIT_ID
-        cd ../.. || exit 1
     fi
+
+    cd thirdparty/edge-developer-kit-reference-scripts || exit 1
+    git fetch origin main
+    git checkout $COMMIT_ID
+    cd ../.. || exit 1
 
     if [ -d "./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices/text-generation/vllm" ]; then
         docker build -t edge-ai-tuning-kit.backend.serving:"$APP_VERSION"-BINARY ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices/text-generation/vllm

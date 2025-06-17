@@ -47,7 +47,7 @@ services:
     ports:
       - "$HOST:5999:5999"
     environment:
-      APP_VER: ${APP_VER}-BINARY
+      APP_VER: ${APP_VER}-DEV
       SERVER_PORT: $SERVER_PORT
       SERVER_HOST: $SERVER_HOST
       POSTGRES_URI: $POSTGRES_URI
