@@ -398,14 +398,14 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 h-[calc(100vh-4rem)]">
       <div
-        className={`flex flex-col h-[calc(100vh-4rem)] ${
+        className={`flex flex-col h-full ${
           showSettings
             ? "col-span-1 md:col-span-2 lg:col-span-3"
             : "col-span-1 md:col-span-3 lg:col-span-4"
         }`}
       >
-        <Card className="border-2 flex-1 flex flex-col h-full">
-          <CardHeader className="pb-2">
+        <Card className="border-2 flex-1 flex flex-col mb-6 h-full overflow-hidden">
+          <CardHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center">
               <Button
                 variant="ghost"
@@ -449,158 +449,156 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 p-0 flex flex-col">
+          <CardContent className="p-0 flex-1 overflow-hidden flex flex-col">
             {evaluationState !== "READY" ? (
               <div className="px-6 py-4 flex-1 flex items-center justify-center">
                 {renderEvaluationState()}
               </div>
             ) : (
-              <div className="px-6 pb-6 pt-2 flex-1 overflow-hidden flex flex-col h-full">
-                <div
-                  ref={chatContainerRef}
-                  className="flex-1 overflow-y-auto mb-4 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-                  style={{
-                    scrollBehavior: "smooth",
-                  }}
-                >
-                  {messages
-                    .filter(
-                      (message) =>
-                        showSystemMessages || message.role !== "system"
-                    )
-                    .map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex mb-4 ${
-                          message.role === "user"
-                            ? "justify-end"
-                            : "justify-start"
-                        }`}
-                      >
-                        {(message.role === "assistant" ||
-                          message.role === "system") && (
-                          <Avatar
-                            className={`h-8 w-8 mr-2 flex-shrink-0 ${
-                              message.role === "system"
-                                ? "bg-purple-500 text-white"
-                                : "bg-green-500 text-white"
-                            }`}
-                          >
-                            <AvatarFallback
-                              className={`${
+              <>
+                <div className="flex flex-col h-[calc(100vh-20rem)] pb-4 overflow-hidden">
+                  <div
+                    ref={chatContainerRef}
+                    className="flex-1 overflow-y-auto px-6 pt-2 pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                  >
+                    {messages
+                      .filter(
+                        (message) =>
+                          showSystemMessages || message.role !== "system"
+                      )
+                      .map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex mb-4 ${
+                            message.role === "user"
+                              ? "justify-end"
+                              : "justify-start"
+                          }`}
+                        >
+                          {(message.role === "assistant" ||
+                            message.role === "system") && (
+                            <Avatar
+                              className={`h-8 w-8 mr-2 flex-shrink-0 ${
                                 message.role === "system"
                                   ? "bg-purple-500 text-white"
                                   : "bg-green-500 text-white"
                               }`}
                             >
-                              {message.role === "system" ? (
-                                <Settings className="h-4 w-4" />
-                              ) : (
-                                <Bot className="h-4 w-4" />
-                              )}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        <div
-                          className={`px-4 py-2 rounded-lg ${
-                            message.role === "system"
-                              ? "max-w-[90%]"
-                              : "max-w-[80%]"
-                          } ${
-                            message.role === "system"
-                              ? "bg-purple-100 dark:bg-purple-900/30 text-foreground border border-purple-200 dark:border-purple-800"
-                              : message.role === "assistant"
-                              ? "bg-green-100 dark:bg-green-900/30 text-foreground border border-green-200 dark:border-green-800"
-                              : "bg-blue-100 dark:bg-blue-900/30 text-foreground border border-blue-200 dark:border-blue-800"
-                          }`}
-                        >
-                          {displayMode === "markdown" ? (
-                            <div className="markdown-content">
-                              <MarkdownRenderer content={message.content} />
-                            </div>
-                          ) : (
-                            <p className="whitespace-pre-wrap">
-                              {message.content}
-                            </p>
+                              <AvatarFallback
+                                className={`${
+                                  message.role === "system"
+                                    ? "bg-purple-500 text-white"
+                                    : "bg-green-500 text-white"
+                                }`}
+                              >
+                                {message.role === "system" ? (
+                                  <Settings className="h-4 w-4" />
+                                ) : (
+                                  <Bot className="h-4 w-4" />
+                                )}
+                              </AvatarFallback>
+                            </Avatar>
                           )}
-                          <p className="text-xs mt-1 opacity-70">
-                            {message.createdAt
-                              ? new Date(message.createdAt).toLocaleTimeString(
-                                  [],
-                                  {
+                          <div
+                            className={`px-4 py-2 rounded-lg ${
+                              message.role === "system"
+                                ? "max-w-[90%]"
+                                : "max-w-[80%]"
+                            } ${
+                              message.role === "system"
+                                ? "bg-purple-100 dark:bg-purple-900/30 text-foreground border border-purple-200 dark:border-purple-800"
+                                : message.role === "assistant"
+                                ? "bg-green-100 dark:bg-green-900/30 text-foreground border border-green-200 dark:border-green-800"
+                                : "bg-blue-100 dark:bg-blue-900/30 text-foreground border border-blue-200 dark:border-blue-800"
+                            } break-words overflow-hidden`}
+                          >
+                            {displayMode === "markdown" ? (
+                              <div className="markdown-content overflow-x-auto">
+                                <MarkdownRenderer content={message.content} />
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap overflow-x-auto">
+                                {message.content}
+                              </p>
+                            )}
+                            <p className="text-xs mt-1 opacity-70">
+                              {message.createdAt
+                                ? new Date(
+                                    message.createdAt
+                                  ).toLocaleTimeString([], {
                                     hour: "2-digit",
                                     minute: "2-digit",
-                                  }
-                                )
-                              : new Date().toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
+                                  })
+                                : new Date().toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                            </p>
+                          </div>
+                          {message.role === "user" && (
+                            <Avatar className="h-8 w-8 ml-2 flex-shrink-0 bg-blue-500 text-white">
+                              <AvatarFallback className="bg-blue-500 text-white">
+                                <User className="h-4 w-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </div>
+                      ))}
+
+                    {/* Placeholder message when there are no user or assistant messages */}
+                    {messages.filter(
+                      (m) => m.role === "user" || m.role === "assistant"
+                    ).length === 0 && (
+                      <div className="flex justify-center items-center h-40">
+                        <div className="px-6 py-4 rounded-lg bg-muted/40 border border-muted/60 text-muted-foreground text-center max-w-md shadow-sm">
+                          <Bot className="h-5 w-5 mx-auto mb-2 text-primary/70" />
+                          <h4 className="text-sm font-medium mb-1">
+                            Start a New Conversation
+                          </h4>
+                          <p className="text-xs">
+                            Type a message below to interact with your
+                            fine-tuned model and evaluate its responses.
                           </p>
                         </div>
-                        {message.role === "user" && (
-                          <Avatar className="h-8 w-8 ml-2 flex-shrink-0 bg-blue-500 text-white">
-                            <AvatarFallback className="bg-blue-500 text-white">
-                              <User className="h-4 w-4" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
                       </div>
-                    ))}
-
-                  {/* Placeholder message when there are no user or assistant messages */}
-                  {messages.filter(
-                    (m) => m.role === "user" || m.role === "assistant"
-                  ).length === 0 && (
-                    <div className="flex justify-center items-center h-40">
-                      <div className="px-6 py-4 rounded-lg bg-muted/40 border border-muted/60 text-muted-foreground text-center max-w-md shadow-sm">
-                        <Bot className="h-5 w-5 mx-auto mb-2 text-primary/70" />
-                        <h4 className="text-sm font-medium mb-1">
-                          Start a New Conversation
-                        </h4>
-                        <p className="text-xs">
-                          Type a message below to interact with your fine-tuned
-                          model and evaluate its responses.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {status === "submitted" && (
-                    <div className="flex mb-4 justify-start">
-                      <Avatar className="h-8 w-8 mr-2 flex-shrink-0 bg-green-500 text-white">
-                        <AvatarFallback className="bg-green-500 text-white">
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="px-4 py-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-foreground border border-green-200 dark:border-green-800">
-                        <div className="flex space-x-1 items-center h-6">
-                          <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce [animation-delay:-0.3s]"></div>
-                          <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce [animation-delay:-0.15s]"></div>
-                          <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce"></div>
+                    )}
+                    {status === "submitted" && (
+                      <div className="flex mb-4 justify-start">
+                        <Avatar className="h-8 w-8 mr-2 flex-shrink-0 bg-green-500 text-white">
+                          <AvatarFallback className="bg-green-500 text-white">
+                            <Bot className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="px-4 py-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-foreground border border-green-200 dark:border-green-800">
+                          <div className="flex space-x-1 items-center h-6">
+                            <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce [animation-delay:-0.3s]"></div>
+                            <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce [animation-delay:-0.15s]"></div>
+                            <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-bounce"></div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  {status === "error" && (
-                    <div className="flex mb-4 justify-start">
-                      <Avatar className="h-8 w-8 mr-2 flex-shrink-0 bg-red-500 text-white">
-                        <AvatarFallback className="bg-red-500 text-white">
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="px-4 py-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-foreground border border-red-200 dark:border-red-800">
-                        <div className="flex items-center">
-                          <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-400" />
-                          <span className="text-sm">
-                            Error generating response. Please try again.
-                          </span>
+                    )}
+                    {status === "error" && (
+                      <div className="flex mb-4 justify-start">
+                        <Avatar className="h-8 w-8 mr-2 flex-shrink-0 bg-red-500 text-white">
+                          <AvatarFallback className="bg-red-500 text-white">
+                            <Bot className="h-4 w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="px-4 py-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-foreground border border-red-200 dark:border-red-800">
+                          <div className="flex items-center">
+                            <XCircle className="h-4 w-4 mr-2 text-red-600 dark:text-red-400" />
+                            <span className="text-sm">
+                              Error generating response. Please try again.
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-auto">
+                <div className="flex items-center gap-2 mt-auto px-6 pb-3 flex-shrink-0">
                   <form
                     onSubmit={handleSubmit}
                     className="flex items-center gap-2 w-full"
@@ -642,7 +640,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                     </Button>
                   </form>
                 </div>
-              </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -650,7 +648,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
 
       {/* Settings Column - Shows when toggled */}
       {showSettings && (
-        <div className="md:col-span-1 animate-in fade-in duration-200 h-[calc(100vh-4rem)]">
+        <div className="md:col-span-1 animate-in fade-in duration-200 mb-6">
           <Card className="border-2 h-full overflow-y-auto">
             <CardHeader>
               <CardTitle className="text-lg">Model Settings</CardTitle>
@@ -777,7 +775,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                 </div>
                 <Slider
                   id="temperature"
-                  min={0}
+                  min={0.01}
                   max={1}
                   step={0.01}
                   value={[temperature]}
