@@ -81,6 +81,7 @@ services:
       HF_HOME: ./data/cache
       HF_TOKEN: $HF_TOKEN
       HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+      HF_HUB_DOWNLOAD_TIMEOUT: 60
     volumes:
       - cache-data:/usr/src/app/data
     command: "celery -A app worker -E --pool=eventlet --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
