@@ -47,8 +47,6 @@ async function getDiskInfo() {
     const free = formatBytes(parseInt(dfParts[3], 10)) || '0';
     const usagePercentage = dfParts[4] || '0%';
 
-    console.log('Disk Info:', { total, free, used, usagePercentage });
-    
     return {
       total,
       free,

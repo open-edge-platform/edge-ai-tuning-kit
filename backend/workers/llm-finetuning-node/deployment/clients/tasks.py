@@ -3,7 +3,8 @@
 
 import json
 import requests
-from urllib.parse import urlparse
+from json import JSONDecodeError
+from urllib.parse import urljoin, urlparse
 
 from clients.base import FastAPIService
 from celery.utils.log import get_task_logger
@@ -29,26 +30,35 @@ class TasksService(FastAPIService):
         if not self._is_valid_url(self.routes):
             raise ValueError("Invalid URL for routes")
         
-        # Validate the id to ensure it is a valid alphanumeric string
-        if not isinstance(id, int) and (not isinstance(id, str) or not id.isalnum()):
+        # Validate id
+        if not isinstance(id, (int, str)) or not str(id).isalnum():
             raise ValueError("Invalid ID")
+        
+        url = urljoin(f"{self.routes}/", str(id))
+        response = requests.get(url)
+        try:
+            json_resp = response.json()
+            data = json_resp.get('data')
+            if not isinstance(data, dict):
+                return None
+        except (ValueError, JSONDecodeError, KeyError) as e:
+            raise RuntimeError("Failed to parse or validate task data") from e
 
-        response = requests.get(f"{self.routes}/{id}")
-        data = response.json()['data']
-        if not data:
-            return None
-
-        data = data
-        if type(data['configs']) == str:
-            data['configs'] = json.loads(data['configs'])
-        if type(data['results']) == str:
-            data['results'] = json.loads(data['results'])
-        print(data, flush=True)
-        print("-"*50, flush=True)
+        try:
+            if isinstance(data.get('configs'), str):
+                data['configs'] = json.loads(data['configs'])
+            if isinstance(data.get('results'), str):
+                data['results'] = json.loads(data['results'])
+        except JSONDecodeError:
+            raise ValueError("Invalid JSON in configs or results")
         return data
 
     def update_task(self, id, data):
-        response = requests.patch(f"{self.routes}/{id}", data=json.dumps(data))
+        if not str(id).isdigit():
+            raise ValueError("Invalid ID")
+        
+        url = urljoin(f"{self.routes}/", str(id))
+        response = requests.patch(url, data=json.dumps(data))
         return response
 
     def get_task_id(self, celery_task_id):

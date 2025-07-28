@@ -6,7 +6,6 @@ import gc
 import ast
 import time
 import shlex
-import random
 import asyncio
 import outlines
 import subprocess  # nosec
@@ -132,7 +131,8 @@ class SyntheticDataGenerator():
         for data in dataset:
             messages = {"messages": []}
             synthetic_message = {"messages": []}
-            seed = random.randint(0, 1000000)
+            random_bytes = os.urandom(4)
+            seed = int.from_bytes(random_bytes, byteorder="big") % 1000001
             for conversation in data['conversations']:
                 if conversation['from'] == 'user':
                     user_message = conversation['value']
@@ -170,7 +170,8 @@ class SyntheticDataGenerator():
     def generate_chat_data(self, query, num_generations=5, language="english"):
         result_list = []
         retry_count = 5
-        seed = random.randint(0, 1000000)
+        random_bytes = os.urandom(4)
+        seed = int.from_bytes(random_bytes, byteorder="big") % 1000001
 
         prompt = FAQ_GENERATION_TEMPLATE.format(
             num_generation_per_page=num_generations,
@@ -185,7 +186,8 @@ class SyntheticDataGenerator():
         if len(responses.faq) == 0:
             retry = 0
             while retry < retry_count:
-                seed = random.randint(0, 1000000)
+                random_bytes = os.urandom(4)
+                seed = int.from_bytes(random_bytes, byteorder="big") % 1000001
                 responses = generator(prompt, seed=seed)
                 if len(responses.faq) == num_generations:
                     break

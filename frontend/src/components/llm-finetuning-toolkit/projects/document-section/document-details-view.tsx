@@ -190,7 +190,7 @@ export function DocumentDetailsView({
                       File Name
                     </p>
                     <p className="font-medium text-sm dark:text-gray-100 truncate">
-                      {selectedSource || "-"}
+                      {selectedSource}
                     </p>
                   </div>
                   <div>
@@ -198,7 +198,7 @@ export function DocumentDetailsView({
                       Source
                     </p>
                     <p className="font-medium text-sm dark:text-gray-100 truncate">
-                      {selectedSource || "-"}
+                      {selectedSource}
                     </p>
                   </div>
                 </div>
