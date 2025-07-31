@@ -168,12 +168,14 @@ export function TrainingSection({ projectId }: { projectId: string }) {
       const result = await createTask(taskConfigs);
       setIsCreateTaskOpen(false);
       setTaskConfigs(getDefaultTaskConfig());
-      if (result.status) {
+      if (result?.status) {
         toast.success(
           "Your training task has been created and added to the queue."
         );
       } else {
-        toast.error(`Failed to create training task. Error: ${result?.message}`);
+        toast.error(
+          `Failed to create training task. Error: ${result?.message || "Unknown error"}`
+        );
       }
     } catch (err) {
       console.error("Error creating task:", err);
@@ -349,13 +351,14 @@ export function TrainingSection({ projectId }: { projectId: string }) {
                     <>
                       <p>No active training tasks found.</p>
                       <p className="mt-2 text-amber-600 font-medium">
-                        ⚠️ You need at least 5 verified data samples to start training (current: {datasetDataCount}).
+                        ⚠️ You need at least 5 verified data samples to start
+                        training (current: {datasetDataCount}).
                       </p>
                     </>
                   ) : (
                     <>
-                      No active training tasks found. Click Create Training Task to
-                      start your first training job.
+                      No active training tasks found. Click Create Training Task
+                      to start your first training job.
                     </>
                   )}
                 </div>
@@ -384,13 +387,14 @@ export function TrainingSection({ projectId }: { projectId: string }) {
                     <>
                       <p>No training tasks found.</p>
                       <p className="mt-2 text-amber-600 font-medium">
-                        ⚠️ You need at least 5 verified data samples to start training (current: {datasetDataCount}).
+                        ⚠️ You need at least 5 verified data samples to start
+                        training (current: {datasetDataCount}).
                       </p>
                     </>
                   ) : (
                     <>
-                      No training tasks found. Click Create Training Task to start
-                      your first training job.
+                      No training tasks found. Click Create Training Task to
+                      start your first training job.
                     </>
                   )}
                 </div>

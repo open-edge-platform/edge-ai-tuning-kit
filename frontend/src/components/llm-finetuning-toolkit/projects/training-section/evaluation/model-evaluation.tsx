@@ -46,10 +46,10 @@ interface ModelEvaluationProps {
     accuracy?: number;
     perplexity?: number;
     inference_configs?: {
-      temperature: number;
-      max_new_tokens: number;
-      prompt_template: string;
-      isRAG: boolean;
+      temperature?: number;
+      max_new_tokens?: number;
+      prompt_template?: string;
+      isRAG?: boolean;
     };
     type?: string;
   };
@@ -78,7 +78,9 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
       : 512
   );
   const [systemPrompt, setSystemPrompt] = useState(
-    task?.inference_configs?.prompt_template || "You are a helpful assistant."
+    task.inference_configs?.prompt_template !== undefined
+      ? task?.inference_configs?.prompt_template
+      : "You are a helpful assistant."
   );
   const [editingPrompt, setEditingPrompt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);

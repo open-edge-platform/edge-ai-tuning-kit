@@ -72,15 +72,6 @@ export function GenerateDataContent({
     setIsGenerating(true);
     setProgress(0);
 
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 95) {
-          return 95;
-        }
-        return prev + Math.floor(Math.random() * 2) + 1;
-      });
-    }, 500);
-
     generateQA.mutate(
       {
         dataset_id: datasetId,
@@ -89,7 +80,6 @@ export function GenerateDataContent({
       },
       {
         onSuccess: () => {
-          clearInterval(interval);
           setProgress(100);
 
           setTimeout(() => {
@@ -101,7 +91,6 @@ export function GenerateDataContent({
           }, 500);
         },
         onError: () => {
-          clearInterval(interval);
           setIsGenerating(false);
           toast.error("Generation failed", {
             description: "Failed to generate data. Please try again.",

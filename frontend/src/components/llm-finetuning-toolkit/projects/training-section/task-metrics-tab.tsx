@@ -83,15 +83,6 @@ export function TaskMetricsTab({ task }: { task: Task }) {
         .sort((a, b) => a.step - b.step)
     : [];
 
-  // Get latest metrics values
-  const latestTrainLoss =
-    trainEntries.length > 0 ? trainEntries[trainEntries.length - 1].loss : null;
-
-  const latestEvalLoss =
-    evalEntries.length > 0
-      ? evalEntries[evalEntries.length - 1].eval_loss
-      : null;
-
   // Prepare chart data for training loss
   const trainLossData = trainEntries.map((entry) => ({
     step: entry.step,
@@ -110,6 +101,49 @@ export function TaskMetricsTab({ task }: { task: Task }) {
     // Store both the original value and a scaled value (multiply by 1e6 to make it more visible)
     lr: entry.lr,
     scaledLR: entry.lr * 1e6,
+  }));
+
+  const peakMemoryAllocationData = trainEntries.map((entry) => ({
+    step: entry.step,
+    memory: entry.peak_memory_alloc
+      ? entry.peak_memory_alloc / 1e9 // Convert to GB
+      : null,
+  }));
+
+  const peakMemoryReservedData = trainEntries.map((entry) => ({
+    step: entry.step,
+    memory: entry.peak_memory_reserved
+      ? entry.peak_memory_reserved / 1e9 // Convert to GB
+      : null,
+  }));
+
+  const tokensPerSecondPerGPUData = trainEntries.map((entry) => ({
+    step: entry.step,
+    tokens_per_second:
+      entry.tokens_per_second_per_gpu !== undefined &&
+      entry.tokens_per_second_per_gpu !== null
+        ? entry.tokens_per_second_per_gpu
+        : null,
+  }));
+
+  const meanTrainAccuracyData = trainEntries.map((entry) => ({
+    step: entry.step,
+    accuracy:
+      typeof entry.mean_token_accuracy === "number" &&
+      !isNaN(entry.mean_token_accuracy) &&
+      isFinite(entry.mean_token_accuracy)
+        ? entry.mean_token_accuracy * 100 // Convert to percentage
+        : null,
+  }));
+
+  const meanEvalAccuracyData = evalEntries.map((entry) => ({
+    step: entry.step,
+    accuracy:
+      typeof entry.eval_mean_token_accuracy === "number" &&
+      !isNaN(entry.eval_mean_token_accuracy) &&
+      isFinite(entry.eval_mean_token_accuracy)
+        ? entry.eval_mean_token_accuracy * 100 // Convert to percentage
+        : null,
   }));
 
   // Custom tooltip formatting
@@ -211,7 +245,10 @@ export function TaskMetricsTab({ task }: { task: Task }) {
             </div>
           )}
           <div className="mt-2 text-xs text-gray-600">
-            Current: {formatNumber(latestTrainLoss, "N/A")}
+            Current:{" "}
+            {trainEntries.length > 0
+              ? formatNumber(trainEntries[trainEntries.length - 1].loss)
+              : "N/A"}
           </div>
         </Card>
         <Card className="p-4">
@@ -263,7 +300,10 @@ export function TaskMetricsTab({ task }: { task: Task }) {
             </div>
           )}
           <div className="mt-2 text-xs text-gray-600">
-            Current: {formatNumber(latestEvalLoss, "N/A")}
+            Current:{" "}
+            {evalEntries.length > 0
+              ? formatNumber(evalEntries[evalEntries.length - 1].eval_loss)
+              : "N/A"}
           </div>
         </Card>
         <Card className="p-4">
@@ -323,10 +363,12 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           )}
           <div className="mt-2 text-xs text-gray-600">
             Current:{" "}
-            {trainEntries.length > 0 &&
-            trainEntries[trainEntries.length - 1].lr !== undefined &&
-            trainEntries[trainEntries.length - 1].lr !== null
-              ? trainEntries[trainEntries.length - 1].lr.toExponential(4)
+            {learningRateData.length > 0 &&
+            learningRateData[learningRateData.length - 1].lr !== undefined &&
+            learningRateData[learningRateData.length - 1].lr !== null
+              ? learningRateData[learningRateData.length - 1].lr.toExponential(
+                  4
+                )
               : "N/A"}
           </div>
         </Card>
@@ -334,19 +376,11 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           <h5 className="text-sm font-medium mb-2">
             Peak Memory Allocation (GB)
           </h5>
-          {trainEntries.length > 0 &&
-          trainEntries.some(
-            (entry) => entry.peak_memory_alloc !== undefined
-          ) ? (
+          {peakMemoryAllocationData.length > 0 ? (
             <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={trainEntries.map((entry) => ({
-                    step: entry.step,
-                    memory: entry.peak_memory_alloc
-                      ? entry.peak_memory_alloc / 1e9
-                      : null, // Convert to GB
-                  }))}
+                  data={peakMemoryAllocationData}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -397,11 +431,10 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           )}
           <div className="mt-2 text-xs text-gray-600">
             Current:{" "}
-            {trainEntries.length > 0 &&
-            trainEntries[trainEntries.length - 1]?.peak_memory_alloc
-              ? `${(
-                  trainEntries[trainEntries.length - 1].peak_memory_alloc / 1e9
-                ).toFixed(2)} GB`
+            {peakMemoryAllocationData.length > 0
+              ? `${peakMemoryAllocationData[
+                  peakMemoryAllocationData.length - 1
+                ].memory?.toFixed(2)} GB`
               : "N/A"}
           </div>
         </Card>
@@ -409,19 +442,11 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           <h5 className="text-sm font-medium mb-2">
             Peak Memory Reserved (GB)
           </h5>
-          {trainEntries.length > 0 &&
-          trainEntries.some(
-            (entry) => entry.peak_memory_reserved !== undefined
-          ) ? (
+          {peakMemoryReservedData.length > 0 ? (
             <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={trainEntries.map((entry) => ({
-                    step: entry.step,
-                    memory: entry.peak_memory_reserved
-                      ? entry.peak_memory_reserved / 1e9
-                      : null, // Convert to GB
-                  }))}
+                  data={peakMemoryReservedData}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -472,28 +497,20 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           )}
           <div className="mt-2 text-xs text-gray-600">
             Current:{" "}
-            {trainEntries.length > 0 &&
-            trainEntries[trainEntries.length - 1]?.peak_memory_reserved
-              ? `${(
-                  trainEntries[trainEntries.length - 1].peak_memory_reserved /
-                  1e9
-                ).toFixed(2)} GB`
+            {peakMemoryReservedData.length > 0
+              ? `${peakMemoryReservedData[
+                  peakMemoryReservedData.length - 1
+                ].memory?.toFixed(2)} GB`
               : "N/A"}
           </div>
         </Card>
         <Card className="p-4">
           <h5 className="text-sm font-medium mb-2">Tokens per Second (t/s)</h5>
-          {trainEntries.length > 0 &&
-          trainEntries.some(
-            (entry) => entry.tokens_per_second_per_gpu !== undefined
-          ) ? (
+          {tokensPerSecondPerGPUData.length > 0 ? (
             <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={trainEntries.map((entry) => ({
-                    step: entry.step,
-                    tokens_per_second: entry.tokens_per_second_per_gpu,
-                  }))}
+                  data={tokensPerSecondPerGPUData}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -543,11 +560,11 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           )}
           <div className="mt-2 text-xs text-gray-600">
             Current:{" "}
-            {trainEntries.length > 0 &&
-            trainEntries[trainEntries.length - 1]?.tokens_per_second_per_gpu
+            {tokensPerSecondPerGPUData.length > 0
               ? `${formatNumber(
-                  trainEntries[trainEntries.length - 1]
-                    .tokens_per_second_per_gpu,
+                  tokensPerSecondPerGPUData[
+                    tokensPerSecondPerGPUData.length - 1
+                  ].tokens_per_second,
                   "N/A",
                   1
                 )} t/s`
@@ -556,19 +573,11 @@ export function TaskMetricsTab({ task }: { task: Task }) {
         </Card>
         <Card className="p-4">
           <h5 className="text-sm font-medium mb-2">Mean Train Accuracy (%)</h5>
-          {trainEntries.length > 0 &&
-          trainEntries.some(
-            (entry) => entry.mean_token_accuracy !== undefined
-          ) ? (
+          {meanTrainAccuracyData.length > 0 ? (
             <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={trainEntries.map((entry) => ({
-                    step: entry.step,
-                    accuracy: entry.mean_token_accuracy
-                      ? entry.mean_token_accuracy * 100
-                      : null,
-                  }))}
+                  data={meanTrainAccuracyData}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -620,12 +629,12 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           )}
           <div className="mt-2 text-xs text-gray-600">
             Current:{" "}
-            {trainEntries.length > 0 &&
-            trainEntries[trainEntries.length - 1]?.mean_token_accuracy !==
-              undefined
+            {meanTrainAccuracyData.length > 0 &&
+            meanTrainAccuracyData[meanTrainAccuracyData.length - 1].accuracy !==
+              null
               ? `${(
-                  trainEntries[trainEntries.length - 1].mean_token_accuracy *
-                  100
+                  meanTrainAccuracyData[meanTrainAccuracyData.length - 1]
+                    .accuracy ?? 0
                 ).toFixed(2)}%`
               : "N/A"}
           </div>
@@ -634,19 +643,11 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           <h5 className="text-sm font-medium mb-2">
             Mean Evaluation Accuracy (%)
           </h5>
-          {evalEntries.length > 0 &&
-          evalEntries.some(
-            (entry) => entry.eval_mean_token_accuracy !== undefined
-          ) ? (
+          {meanEvalAccuracyData.length > 0 ? (
             <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={evalEntries.map((entry) => ({
-                    step: entry.step,
-                    accuracy: entry.eval_mean_token_accuracy
-                      ? entry.eval_mean_token_accuracy * 100
-                      : null,
-                  }))}
+                  data={meanEvalAccuracyData}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -698,12 +699,12 @@ export function TaskMetricsTab({ task }: { task: Task }) {
           )}
           <div className="mt-2 text-xs text-gray-600">
             Current:{" "}
-            {evalEntries.length > 0 &&
-            evalEntries[evalEntries.length - 1]?.eval_mean_token_accuracy !==
-              undefined
+            {meanEvalAccuracyData.length > 0 &&
+            meanEvalAccuracyData[meanEvalAccuracyData.length - 1].accuracy !==
+              null
               ? `${(
-                  evalEntries[evalEntries.length - 1].eval_mean_token_accuracy *
-                  100
+                  meanEvalAccuracyData[meanEvalAccuracyData.length - 1]
+                    .accuracy ?? 0
                 ).toFixed(2)}%`
               : "N/A"}
           </div>
