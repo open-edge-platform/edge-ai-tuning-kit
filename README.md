@@ -2,6 +2,8 @@
 
 The Edge AI Tuning Kit is a comprehensive solution for creating, tailoring, and implementing AI models in edge platform. It incorporates AI training and inference frameworks, data management tools. This provides businesses with a convenient, economical, and rapid approach to integrate AI on the Intel Platform.
 
+![Tool Flow](assets/demo.gif)
+
 ---
 
 ## Latest Update 🔥
