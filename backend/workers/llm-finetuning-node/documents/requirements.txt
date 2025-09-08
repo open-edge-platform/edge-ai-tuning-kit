@@ -14,7 +14,7 @@ pysqlite3-binary==0.5.4
 transformers
 sentence-transformers==4.1.0
 FlagEmbedding==1.2.8 # TODO: change to OpenVINO version
-pypdf==5.0.0
+pypdf==6.0.0
 
 # Inference dependencies
 --extra-index-url "https://download.pytorch.org/whl/cpu"
