@@ -8,7 +8,7 @@ requests==2.32.4
 # Vector dependencies
 langchain==0.3.8
 langchain-chroma==0.2.2
-langchain-community===0.3.8
+langchain-community===0.3.27
 chromadb==0.6.3
 pysqlite3-binary==0.5.4
 transformers
