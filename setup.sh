@@ -39,8 +39,10 @@ verify_gpu_available() {
         "Intel(R) Arc(TM) A770 Graphics"
         "Intel(R) Arc(TM) A770M Graphics"
         "Intel(R) Data Center GPU Flex 170"
-        "Intel(R) Graphics \[0xe20b\]"
         "Intel(R) Arc(TM) B580 Graphics"
+        "Intel(R) Arc(TM) Pro B60 Graphics"
+        "Intel(R) Graphics \[0xe20b\]"
+        "Intel(R) Graphics \[0xe211\]"
     )
 
     echo -e "\n# Identifying GPU"

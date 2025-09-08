@@ -74,8 +74,16 @@ if ! command -v $sycl_ls_path &>/dev/null; then
     exit 2
 fi
 
-# Extract all level_zero ids for the discrete GPU
-mapfile -t level_zero_ids < <($sycl_ls_path | grep "$discrete_gpu_name" | grep 'level_zero:gpu' | sed -n 's/.*level_zero:\([0-9]\+\)].*/\1/p')
+mapfile -t level_zero_ids < <($sycl_ls_path | \
+    awk -v name="$discrete_gpu_name" '
+        index($0, name) {
+            if (match($0, /level_zero:[0-9]+/)) {
+                s = substr($0, RSTART, RLENGTH)
+                sub(/.*:/, "", s)
+                print s
+            }
+        }
+    ')
 
 if [[ ${#level_zero_ids[@]} -eq 0 ]]; then
     log_error "Could not find any level_zero id for $discrete_gpu_name"
