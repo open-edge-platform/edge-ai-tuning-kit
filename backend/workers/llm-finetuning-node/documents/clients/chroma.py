@@ -50,6 +50,7 @@ class ChromaClient:
         self.client.get_or_create_collection(
             self.collection_name,
             metadata={"hnsw:space": "cosine"},
+            embedding_function=self.embedding
         )
 
     def _read_file(self, file_path):
@@ -151,7 +152,8 @@ class ChromaClient:
     def get_all_collection_data(self, page, pageSize, source):
         try:
             collection = self.client.get_or_create_collection(
-                name=self.collection_name
+                name=self.collection_name,
+                embedding_function=self.embedding
             )
             if source:
                 data = collection.get(where={"source": source})
@@ -197,6 +199,7 @@ class ChromaClient:
         try:
             collection = self.client.get_or_create_collection(
                 name=self.collection_name,
+                embedding_function=self.embedding
             )
             data = collection.get()
             num_data = len(data["ids"])

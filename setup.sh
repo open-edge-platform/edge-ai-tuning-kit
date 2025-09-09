@@ -6,7 +6,7 @@ set -e
 
 APP_VERSION=2025.1
 SERVER_IP=backend
-COMMIT_ID=cfd76fd
+COMMIT_ID=f1bf390
 RENDER_GROUP_ID=$(getent group render | cut -d: -f3)
 export RENDER_GROUP_ID
 DOCKER_GROUP_ID=$(getent group docker | cut -d: -f3)
@@ -39,8 +39,11 @@ verify_gpu_available() {
         "Intel(R) Arc(TM) A770 Graphics"
         "Intel(R) Arc(TM) A770M Graphics"
         "Intel(R) Data Center GPU Flex 170"
-        "Intel(R) Graphics \[0xe20b\]"
         "Intel(R) Arc(TM) B580 Graphics"
+        "Intel(R) Arc(TM) Pro B50 Graphics"
+        "Intel(R) Arc(TM) Pro B60 Graphics"
+        "Intel(R) Graphics \[0xe20b\]"
+        "Intel(R) Graphics \[0xe211\]"
     )
 
     echo -e "\n# Identifying GPU"
@@ -66,7 +69,11 @@ verify_gpu_available() {
         echo -e "- Intel(R) Arc(TM) A770 Graphics"
         echo -e "- Intel(R) Arc(TM) A770M Graphics"
         echo -e "- Intel(R) Data Center GPU Flex 170"
+        echo -e "- Intel(R) Arc(TM) B580 Graphics"
+        echo -e "- Intel(R) Arc(TM) Pro B50 Graphics"
+        echo -e "- Intel(R) Arc(TM) Pro B60 Graphics"
         echo -e "- Intel(R) Graphics \[0xe20b\]"
+        echo -e "- Intel(R) Graphics \[0xe211\]"
         exit 1
     fi
 }
