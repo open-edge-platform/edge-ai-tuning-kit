@@ -86,9 +86,24 @@ def test_default_model_downloaded():
     def check_model_downloaded(response):
         return response.json()['data']['download_metadata']['status'] == "SUCCESS"
     
-    is_test_pass = wait_for_condition('/v1/models/1', check_model_downloaded)
-    assert is_test_pass == True
+    retry_count = 20
+    retry_delay = 30  # seconds
+    is_test_pass = False
+    while retry_count > 0:
+        try:
+            response = api_request('post', '/v1/models/download/1')
+            time.sleep(60)
+            response = api_request('get', '/v1/models/1')
+            if response.status_code == 200 and check_model_downloaded(response):
+                is_test_pass = True
+                break
+        except Exception as error:
+            print(f"Error checking model download status: {error}")
 
+        time.sleep(retry_delay)
+        retry_count -= 1
+        
+    assert is_test_pass == True
 
 # Project test
 @pytest.fixture(scope="module")

@@ -47,7 +47,8 @@ def HFModelDownloadPipeline(id: int, task_id: str, model_id: str, model_dir: str
             revision=model_revision,
             local_dir=model_dir,
             tqdm_class=TqdmClass,
-            resume_download=True
+            resume_download=True,
+            ignore_patterns=["*.pth"] # only download .safetensors model files
         )
         logger.info(f"{model_id} download successsfully in {model_dir}")
 
