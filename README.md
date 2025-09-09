@@ -8,6 +8,7 @@ The Edge AI Tuning Kit is a comprehensive solution for creating, tailoring, and 
 
 ## Latest Update 🔥
 
+- **[2025/09]** Added support for Intel® Arc™ Pro B50 Graphics & Intel® Arc™ Pro B60 Graphics.
 - **[2025/06]** Added support for Intel® Arc™ B580 Graphics and introduced a new user interface for an improved experience.
 - **[2025/06]** Initial release of Edge AI Tuning Kit v2025.1.0.
 
@@ -35,9 +36,7 @@ Comprehensive documentation regarding supported models and additional technical 
 
 ### 2. Login to your Hugging Face account and browse to [mistralai/Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3) and click on the `Agree and access repository` button.
 
-### 3. Setup GPU driver based on your GPU version
-* Intel® Arc™ A-Series Graphics: [link](https://github.com/intel/edge-developer-kit-reference-scripts/tree/main/gpu/arc/dg2)
-* Intel® Data Center GPU Flex Series: [link](https://github.com/intel/edge-developer-kit-reference-scripts/tree/main/gpu/flex/ats)
+### 3. Setup the necessary drivers automatically on your platform using the scripts provided in [Edge Developer Kit Reference Scripts](https://github.com/intel/edge-developer-kit-reference-scripts).
 
 ### 4. Install Docker
 Follow the docker installation using the [link](https://docs.docker.com/engine/install/ubuntu/)
