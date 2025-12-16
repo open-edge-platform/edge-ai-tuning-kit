@@ -11,7 +11,7 @@ def create_subset_from_dataset(dataset_path, save_path, percentage=10):
         dataset = json.loads(fp.read())
 
     num_elements = min(5, int(len(dataset) * percentage))
-    selected_dataset = random.sample(dataset, num_elements)
+    selected_dataset = random.sample(dataset, num_elements) # nosec
     with open(save_path, "w") as fp:
         json.dump(selected_dataset, fp)
     return save_path

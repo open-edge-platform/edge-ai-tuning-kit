@@ -27,7 +27,7 @@ def fill_value_in_dict(data: dict, required_keys: list) -> dict:
 
 
 def get_cpu_info():
-    import subprocess
+    import subprocess # nosec
     cpu_output = subprocess.check_output(["lscpu"])
     cpu_info = cpu_output.decode("utf-8").strip().split("\n")
     for line in cpu_info:

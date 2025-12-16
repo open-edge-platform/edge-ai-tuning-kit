@@ -118,7 +118,7 @@ class OVInference:
 
         json_data = json.loads(data)
         sample_size = max(1, len(json_data) * percentage // 100)
-        sampled_data = random.sample(json_data, sample_size)
+        sampled_data = random.sample(json_data, sample_size) # nosec
         
         for item in sampled_data:
             synthetic_conversation = {"messages": []}

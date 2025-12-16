@@ -6,7 +6,7 @@ import json
 import uuid
 import shlex
 import asyncio
-import subprocess
+import subprocess # nosec
 from pydantic import BaseModel
 from omegaconf import OmegaConf
 

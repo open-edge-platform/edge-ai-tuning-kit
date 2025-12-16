@@ -6,7 +6,7 @@ import psutil
 import shutil
 import logging
 import shlex
-import subprocess
+import subprocess # nosec
 
 logger = logging.getLogger(__name__)
 

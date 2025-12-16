@@ -1,8 +1,8 @@
 // Copyright (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { createOpenAI } from "@ai-sdk/openai";
-import { type CoreMessage, streamText } from "ai";
+import { convertToModelMessages, streamText, UIMessage } from 'ai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { type NextRequest } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- disable for route handler
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       maxTokens,
       temperature,
     }: {
-      messages: CoreMessage[];
+      messages: UIMessage[];
       modelID: string;
       maxTokens: number;
       temperature: number;
@@ -29,20 +29,20 @@ export async function POST(req: NextRequest) {
     }
 
     const hostname = process.env.NEXT_PUBLIC_HOSTNAME || "localhost";
-    const openai = createOpenAI({
+    const provider = createOpenAICompatible({
+      name: 'openai',
+      apiKey: '-',
       baseURL: `http://${hostname}:5999/v1/`,
-      apiKey: "-",
-      compatibility: "compatible",
     });
 
     try {
       const result = await streamText({
-        model: openai(modelID),
-        messages: messages,
-        maxTokens: maxTokens,
+        model: provider(modelID),
+        messages: convertToModelMessages(messages),
+        maxOutputTokens: maxTokens,
         temperature: temperature,
       });
-      return result.toDataStreamResponse();
+      return result.toUIMessageStreamResponse();
     } catch (streamError) {
       console.error("Error in streamText:", streamError);
       // Format error response to match what the useChat hook expects
