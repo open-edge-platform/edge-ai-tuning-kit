@@ -6,7 +6,7 @@ set -e
 
 APP_VERSION=2025.1
 SERVER_IP=backend
-COMMIT_ID=f1bf390
+COMMIT_ID=63a6c55
 RENDER_GROUP_ID=$(getent group render | cut -d: -f3)
 export RENDER_GROUP_ID
 DOCKER_GROUP_ID=$(getent group docker | cut -d: -f3)

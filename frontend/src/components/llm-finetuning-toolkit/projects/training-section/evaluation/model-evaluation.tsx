@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
+import { DefaultChatTransport } from 'ai';
 import { useChat } from "@ai-sdk/react";
 import { MarkdownRenderer } from "@/components/llm-finetuning-toolkit/common/markdown";
 import {
@@ -94,37 +95,31 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
   const startInferenceService = useStartInferenceService();
   const stopInferenceService = useStopInferenceService();
 
-  // Memoize the body object for useChat to prevent recreating it on every render
-  const chatConfig = useMemo(
-    () => ({
-      api: "/llm-finetuning-toolkit/api/chat",
-      id: `task-${task.id}`,
-      key: `task-${task.id}`,
-      initialMessages: [
-        {
-          id: "system",
-          role: "system" as "system" | "user" | "assistant" | "data",
-          content: systemPrompt,
-          createdAt: new Date(),
-        },
-      ],
-      body: {
-        modelID: currentModelID,
-        maxTokens,
-        temperature,
-      },
+  const [input, setInput] = useState('');
+  const { messages, setMessages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/llm-finetuning-toolkit/api/chat',
     }),
-    [task.id, systemPrompt, currentModelID, maxTokens, temperature]
+    onError: () => {
+      setEvaluationState("FAIL");
+    },
+  });
+  const chatBody = useMemo(
+    () => ({
+      modelID: currentModelID,
+      max_tokens: maxTokens,
+      temperature,
+      systemPrompt
+    }),
+    [currentModelID, maxTokens, temperature, systemPrompt]
   );
+  const sendUserMessage = (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    if (input.trim() === "") return;
+    sendMessage({text: input}, { body: chatBody });
+    setInput("");
+  }
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    setMessages,
-    status,
-  } = useChat(chatConfig);
 
   // Scroll to bottom of messages
   useEffect(() => {
@@ -133,16 +128,6 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
 
   // Update settings and reset messages when task changes
   useEffect(() => {
-    // Reset messages to just include the system prompt when task changes
-    setMessages([
-      {
-        id: "system",
-        role: "system" as "system" | "user" | "assistant" | "data",
-        content: systemPrompt,
-        createdAt: new Date(),
-      },
-    ]);
-
     // Update settings if they exist in task
     if (task?.inference_configs) {
       if (task.inference_configs.temperature !== undefined) {
@@ -152,7 +137,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
         setMaxTokens(task.inference_configs.max_new_tokens);
       }
     }
-  }, [task.id, setMessages]); // Only depend on task.id to ensure it runs when task changes
+  }, [task.id]); // Only depend on task.id to ensure it runs when task changes
 
   // Initialize the service on component mount - only once
   useEffect(() => {
@@ -162,13 +147,12 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
           id: Number(task.id),
         });
         if (!response.status) {
-          console.error(`${response.message}`);
           setEvaluationState("FAIL");
         } else {
           setEvaluationState("WAIT");
         }
       } catch (err) {
-        console.log(err);
+        console.error("Error starting inference service:", err);
         setEvaluationState("FAIL");
       }
     };
@@ -196,7 +180,6 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
       try {
         // If modelID.status is false, keep waiting
         if (modelID.status === false) {
-          console.log("Model service not ready yet, continuing to wait");
           return; // Keep evaluation state as WAIT
         }
 
@@ -208,7 +191,6 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
           if (parseInt(taskIDFromModelID) === Number(task.id)) {
             setCurrentModelID(modelIDString);
             setEvaluationState("READY");
-            console.log("Model is ready for evaluation");
           }
         } else {
           console.log("Model ID data is not in the expected format:", modelID);
@@ -229,10 +211,8 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
         {
           onSuccess: (response) => {
             if (!response.status) {
-              console.error(`${response.message}`);
               setEvaluationState("FAIL");
             } else {
-              console.log(`${response.message}`);
               setEvaluationState("WAIT");
             }
           },
@@ -246,14 +226,12 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
         {
           onSuccess: (response) => {
             if (!response.status) {
-              console.error(`${response.message}`);
               setEvaluationState("FAIL");
             } else {
               queryClient.removeQueries({ queryKey: ["models"] });
               setCurrentModelID("");
 
               if (currentDevice === device) {
-                console.log(`${response.message}`);
                 setEvaluationState("STOP");
               } else {
                 // If device was changed, restart the service with new device
@@ -273,15 +251,8 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
   };
 
   const handleClearMessages = () => {
-    // Reset to just the system message
-    setMessages([
-      {
-        id: "system",
-        role: "system",
-        content: systemPrompt,
-        createdAt: new Date(),
-      },
-    ]);
+    setInput("");
+    setMessages([]);
   };
 
   const handleStopService = () => {
@@ -290,9 +261,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
         { id: Number(task.id) },
         {
           onSuccess: (response) => {
-            if (!response.status) {
-              console.error(`${response.message}`);
-            } else {
+            if (response.status) {
               // Clear all model-related cached queries
               queryClient.removeQueries({ queryKey: ["models"] });
 
@@ -301,24 +270,11 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
 
               // Reset the model data in the query to force a fresh fetch next time
               resetData();
-
-              console.log(`${response.message}`);
               setEvaluationState("STOP");
-
-              // Reset conversation to just the system message
-              setMessages([
-                {
-                  id: "system",
-                  role: "system",
-                  content: systemPrompt,
-                  createdAt: new Date(),
-                },
-              ]);
+              handleClearMessages();
             }
           },
-          onError: (error) => {
-            console.error("Error stopping inference service:", error);
-            // Even on error, try to reset the state and data
+          onError: () => {
             setCurrentModelID("");
             resetData();
             setEvaluationState("STOP");
@@ -516,26 +472,37 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                           >
                             {displayMode === "markdown" ? (
                               <div className="markdown-content overflow-x-auto">
-                                <MarkdownRenderer content={message.content} />
+                                <MarkdownRenderer
+                                  content={message.parts
+                                    .map(
+                                      (part) => {
+                                        if (part.type === "text" && part.text !== undefined) {
+                                          return part.text.trimStart();
+                                        } else {
+                                          return "";
+                                        }
+                                      }
+                                    )
+                                    .join("")
+                                  }
+                                />
                               </div>
                             ) : (
                               <p className="whitespace-pre-wrap overflow-x-auto">
-                                {message.content}
+                                {message.parts
+                                  .map(
+                                    (part) => {
+                                      if (part.type === "text" && part.text !== undefined) {
+                                        return part.text.trimStart();
+                                      } else {
+                                        return "";
+                                      }
+                                    }
+                                  )
+                                  .join("")
+                                }
                               </p>
                             )}
-                            <p className="text-xs mt-1 opacity-70">
-                              {message.createdAt
-                                ? new Date(
-                                    message.createdAt
-                                  ).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : new Date().toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                            </p>
                           </div>
                           {message.role === "user" && (
                             <Avatar className="h-8 w-8 ml-2 flex-shrink-0 bg-blue-500 text-white">
@@ -602,19 +569,19 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
                 </div>
                 <div className="flex items-center gap-2 mt-auto px-6 pb-3 flex-shrink-0">
                   <form
-                    onSubmit={handleSubmit}
+                    onSubmit={e => sendUserMessage(e)}
                     className="flex items-center gap-2 w-full"
                   >
                     <Textarea
                       placeholder="Type your message... (Shift+Enter for new line)"
                       value={input}
-                      onChange={handleInputChange}
-                      onKeyDown={(e) => {
+                      onChange={e => {
+                        setInput(e.target.value);
+                      }}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
-                          handleSubmit(
-                            e as unknown as React.FormEvent<HTMLFormElement>
-                          );
+                          sendUserMessage(e);
                         }
                       }}
                       className="flex-1 min-h-[40px] max-h-[200px]"
