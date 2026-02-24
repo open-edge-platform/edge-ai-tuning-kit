@@ -2,6 +2,9 @@
   "name": "edge-ai-tuning-kit",
   "version": "2025.1.0",
   "private": true,
+  "overrides": {
+    "minimatch": "^10.2.1"
+  },
   "scripts": {
     "dev": "next dev --turbopack -p 3000",
     "build": "next build",
