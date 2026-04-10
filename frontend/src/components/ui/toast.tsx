@@ -29,7 +29,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (toast: Omit<Toast, "id">) => {
-    const id = Math.random().toString(36).slice(2);
+    const id = crypto.randomUUID();
     const newToast = { ...toast, id };
     setToasts((prev) => [...prev, newToast]);
 

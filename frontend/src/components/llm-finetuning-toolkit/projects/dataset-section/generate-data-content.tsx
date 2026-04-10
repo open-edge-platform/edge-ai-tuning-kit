@@ -31,7 +31,9 @@ export function GenerateDataContent({ onGenerate, onCancel }: GenerateDataConten
           clearInterval(interval)
           return 100
         }
-        return prev + Math.floor(Math.random() * 5) + 1
+        const randomArray = new Uint32Array(1);
+        crypto.getRandomValues(randomArray);
+        return prev + (randomArray[0] % 5) + 1
       })
     }, 200)
 

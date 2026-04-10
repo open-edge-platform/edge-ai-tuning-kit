@@ -25,6 +25,7 @@ import {
   Settings,
   RefreshCw,
   Cpu,
+  CircuitBoard,
   XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -80,7 +81,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
   );
   const [systemPrompt, setSystemPrompt] = useState(
     task.inference_configs?.prompt_template !== undefined
-      ? task?.inference_configs?.prompt_template
+      ? task.inference_configs?.prompt_template
       : "You are a helpful assistant."
   );
   const [editingPrompt, setEditingPrompt] = useState(false);
@@ -394,7 +395,7 @@ export function ModelEvaluation({ task, onClose }: ModelEvaluationProps) {
               <Badge variant="secondary">Temp: {temperature.toFixed(2)}</Badge>
               <Badge variant={currentDevice === "xpu" ? "default" : "outline"}>
                 {currentDevice === "xpu" ? (
-                  <Cpu className="h-4 w-4 mr-2" />
+                  <CircuitBoard className="h-4 w-4 mr-2" />
                 ) : (
                   <Cpu className="h-4 w-4 mr-2" />
                 )}

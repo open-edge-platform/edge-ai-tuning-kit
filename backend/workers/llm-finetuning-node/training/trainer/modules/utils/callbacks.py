@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0 
 
+import os
 import time
 import requests
 from datetime import datetime
@@ -18,7 +19,9 @@ class TaskCallback:
         """
         Update the task data in the server.
         """
-        server_url = f"http://{server_uri}/v1/tasks/{task_id}"
+        use_https = os.environ.get("BACKEND_SERVER_PROTOCOL", "http") == "https"
+        protocol = "https" if use_https else "http"
+        server_url = f"{protocol}://{server_uri}/v1/tasks/{task_id}"
         response = requests.patch(server_url, json=data)
         if response.status_code == 200:
             logger.info("Task data updated successfully.")
@@ -72,7 +75,9 @@ class CustomCallback(TrainerCallback):
 
     def _update_metric(self, data: dict, server_uri: str = "backend:5999"):
         if self.is_update_metric:
-            self.server_url = f"http://{server_uri}/v1/tasks/{self.task_id}"
+            use_https = os.environ.get("BACKEND_SERVER_PROTOCOL", "http") == "https"
+            protocol = "https" if use_https else "http"
+            self.server_url = f"{protocol}://{server_uri}/v1/tasks/{self.task_id}"
             response = requests.patch(self.server_url, json=data)
             response.raise_for_status()
 

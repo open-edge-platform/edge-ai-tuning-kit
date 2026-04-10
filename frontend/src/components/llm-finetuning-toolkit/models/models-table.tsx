@@ -150,7 +150,7 @@ export function ModelsTable({
         label: "HuggingFace",
         icon: <ExternalLink className="h-4 w-4" />,
         onClick: () =>
-          window.open(`https://huggingface.co/${model.model_id}`, "_blank"),
+          window.open(`https://huggingface.co/${model.model_id}`, "_blank", "noopener,noreferrer"),
       },
       // Show Download button only if not already downloaded and not currently downloading
       ...(model.download_metadata.status !== "DOWNLOADING" && !model.is_downloaded
