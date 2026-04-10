@@ -185,11 +185,8 @@ export function HardwareInfoCard() {
               "Error fetching CPU usage during system info update:",
               cpuErr
             );
-            // If we can't get real data, generate a value
-            const newValue = currentCpuUsage + (Math.random() * 10 - 5);
-            const boundedValue = Math.min(100, Math.max(0, newValue));
-            response.data.cpu.usagePercentage = boundedValue.toString();
-            setCurrentCpuUsage(boundedValue);
+            response.data.cpu.usagePercentage = "0";
+            setCurrentCpuUsage(0);
           }
           setSystemInfo(response.data);
           setLoading(false);

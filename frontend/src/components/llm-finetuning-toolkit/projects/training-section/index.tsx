@@ -72,7 +72,7 @@ export function TrainingSection({ projectId }: { projectId: string }) {
   const getDefaultTaskConfig = () => {
     const defaultTaskType = "QLORA";
     // Ensure num_gpus is always "1" for QLORA
-    const defaultNumGpus = defaultTaskType === "QLORA" ? "1" : "1";
+    const defaultNumGpus = "1";
 
     return {
       project_id: parseInt(projectId),
@@ -479,7 +479,7 @@ export function TrainingSection({ projectId }: { projectId: string }) {
                 return (
                   <Button
                     key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "default"}
+                    variant={currentPage === pageNum ? "default" : "outline"}
                     size="sm"
                     className={`h-8 w-8 p-0 mx-0.5 ${
                       currentPage === pageNum ? "" : "opacity-70"

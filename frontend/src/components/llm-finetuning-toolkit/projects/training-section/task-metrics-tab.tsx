@@ -157,7 +157,7 @@ export function TaskMetricsTab({ task }: { task: Task }) {
         <div className="bg-white p-2 border rounded shadow-sm text-xs">
           <p className="font-medium">Step: {label}</p>
           <p className="text-blue-600">
-            {payload[0].dataKey === "loss" ? "Loss: " : "Loss: "}
+            {payload[0].dataKey === "loss" ? "Loss: " : "Eval Loss: "}
             {formatNumber(payload[0].value, "N/A", 4)}
           </p>
         </div>
