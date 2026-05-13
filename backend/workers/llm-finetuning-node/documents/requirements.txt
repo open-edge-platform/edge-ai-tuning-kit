@@ -6,7 +6,7 @@ python-dotenv==1.0.0
 requests==2.33.0
 
 # Vector dependencies
-langchain==0.3.27
+langchain==0.3.30
 langchain-chroma==0.2.5
 langchain-community===0.3.27
 chromadb==1.0.20
