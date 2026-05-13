@@ -6,7 +6,7 @@ requests==2.33.0
 pydantic==2.10.6
 
 # Vector dependencies
-langchain==0.3.27
+langchain==0.3.30
 langchain-chroma==0.2.5
 langchain-community===0.3.27
 chromadb==1.0.20
