@@ -6,7 +6,6 @@ set -e
 
 APP_VERSION=2025.1
 SERVER_IP=backend
-COMMIT_ID=63a6c55
 RENDER_GROUP_ID=$(getent group render | cut -d: -f3)
 export RENDER_GROUP_ID
 DOCKER_GROUP_ID=$(getent group docker | cut -d: -f3)
@@ -125,10 +124,10 @@ verify_os() {
         echo "- Operating System: Ubuntu 22.04 LTS"
     elif grep -q 'Ubuntu 24.04' /etc/os-release; then
         echo "- Operating System: Ubuntu 24.04 LTS"
-    elif grep -q 'Ubuntu 24.10' /etc/os-release; then
-        echo "- Operating System: Ubuntu 24.10"
+    elif grep -q 'Ubuntu 26.04' /etc/os-release; then
+        echo "- Operating System: Ubuntu 26.04 LTS"
     else
-        echo "- Operating System: Unsupported OS. Please use Ubuntu 22.04, 24.04 LTS or Ubuntu 22.10"
+        echo "- Operating System: Unsupported OS. Please use Ubuntu 22.04, 24.04 LTS or 26.04 LTS."
         exit 1
     fi
 }
@@ -195,31 +194,17 @@ verify_docker_group_permission() {
     fi
 }
 
+install_dependencies() {
+    echo -e "\n# Installing dependencies"
+    if grep -q 'Ubuntu 26.04' /etc/os-release; then
+        echo -e "- Installing dependencies for Ubuntu 26.04 ..."
+        install_packages "dpclang-6" "onedpl-headers"
+    fi
+}
+
 setup_app() {
     echo -e "\n# Building the docker images for application."
-    if [ ! -d "./thirdparty" ]; then
-        mkdir -p thirdparty
-    fi
-
-    if [ ! -d "./thirdparty/edge-developer-kit-reference-scripts" ]; then
-        echo -e "- Downloading the thirdparty folder from the repository."
-        if ! git clone https://github.com/intel/edge-developer-kit-reference-scripts.git thirdparty/edge-developer-kit-reference-scripts; then
-            echo -e "- Unable to clone the repository. Please check your internet connection."
-            exit 1
-        fi
-    fi
-
-    cd thirdparty/edge-developer-kit-reference-scripts || exit 1
-    git fetch origin main
-    git checkout $COMMIT_ID
-    cd ../.. || exit 1
-
-    if [ -d "./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices/text-generation/vllm" ]; then
-        docker build -t edge-ai-tuning-kit.backend.serving:"$APP_VERSION"-BINARY ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices/text-generation/vllm
-    else
-        echo -e "- Unable to build docker images. Please ensure thirdparty folder is available."
-        exit 1
-    fi
+    docker pull intel/vllm:0.17.0-xpu
     APP_VER=$APP_VERSION docker compose -f docker-compose.yml build --build-arg SERVER_IP="$SERVER_IP"
 }
 
@@ -234,11 +219,22 @@ build() {
     echo -e "\n# App built successfully. Please reboot your system before running the start command."
 }
 
+verify_docker_group_id() {
+    echo -e "\n# Verifying docker group ID"
+    if [[ -z "$DOCKER_GROUP_ID" ]]; then
+        echo -e "- Docker group not found. Please ensure the docker is installed and the docker group exists."
+        exit 1
+    else
+        echo -e "- Docker group ID: ${DOCKER_GROUP_ID}"
+    fi
+}
+
 run() {
+    verify_docker_group_id
     verify_env_template
     verify_huggingface_token
     echo -e "\n# Starting the apps in docker containers."
-    RENDER_GROUP_ID="$RENDER_GROUP_ID" docker compose -f docker-compose.yml up -d
+    RENDER_GROUP_ID="$RENDER_GROUP_ID" DOCKER_GROUP_ID="$DOCKER_GROUP_ID" docker compose -f docker-compose.yml up -d
 }
 
 stop() {

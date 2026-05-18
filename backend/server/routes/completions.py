@@ -56,7 +56,7 @@ class ICreateCompletions(TypedDict, total=False):
     prompt: Required[Union[List[int], List[List[int]], str, List[str], None]]
     projectID: Required[str]
     rag: bool = False
-    endpoint: str = "http://host.docker.internal:5950/v1/completions"
+    endpoint: str = "http://evaluation-node:8000/v1/completions"
     suffix: str
     max_tokens: int = 16
     temperature: Union[int, float] = 1
@@ -80,7 +80,7 @@ class ICreateCompletions(TypedDict, total=False):
 class ICreateChatCompletions(TypedDict, total=False):
     model: Required[str]
     messages: Required[List]
-    endpoint: str = "http://host.docker.internal:5950/v1/completions"
+    endpoint: str = "http://evaluation-node:8000/v1/chat/completions"
     suffix: str
     max_tokens: int = 16
     temperature: Union[int, float] = 1
@@ -103,12 +103,20 @@ class ICreateChatCompletions(TypedDict, total=False):
 
 
 @router.get("/v1/completions/models", status_code=200)
-async def models(endpoint: str = 'http://host.docker.internal:5950/v1/models'):
+async def models(endpoint: str = 'http://evaluation-node:8000/v1/models'):
     try:
-        result = requests.get(endpoint)
-    except:
-        return {"status": False, "message": "Invalid endpoint"}
-    return result.json()
+        result = requests.get(endpoint, timeout=10)
+        result.raise_for_status()
+        return result.json()
+    except requests.exceptions.ConnectionError:
+        return {"status": False, "message": "Inference service is not reachable. Please start the inference node first."}
+    except requests.exceptions.Timeout:
+        return {"status": False, "message": "Request to inference service timed out."}
+    except requests.exceptions.HTTPError as e:
+        return {"status": False, "message": f"Inference service returned an error: {e}"}
+    except Exception as e:
+        logger.error(f"Failed to fetch models from {endpoint}: {e}")
+        return {"status": False, "message": "Failed to retrieve models from inference service."}
 
 @router.post("/v1/chat/completions", status_code=200)
 async def chat_completions(service: Annotated[TaskService, Depends()], taskService: Annotated[TaskService, Depends()], data: ICreateChatCompletions):
@@ -117,7 +125,7 @@ async def chat_completions(service: Annotated[TaskService, Depends()], taskServi
             yield (chunk)
 
     endpoint = data.get(
-        'endpoint', "http://host.docker.internal:5950/v1/chat/completions")
+        'endpoint', "http://evaluation-node:8000/v1/chat/completions")
     try:
         llm = requests.post(
             endpoint,

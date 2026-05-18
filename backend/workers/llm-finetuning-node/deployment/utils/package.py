@@ -109,43 +109,46 @@ class PrepareDeploymentFile():
         # Create the zip file with all components
         with zipfile.ZipFile(zip_filename, 'w') as zip_file:
             self._add_model_files_to_zip(
-                zip_file, source_dirs["model"], total_size, task_id)
-            self._add_deployment_files_to_zip(
-                zip_file, source_dirs["deployment"], total_size, task_id)
-            self._add_embedding_files_to_zip(
-                zip_file, source_dirs["embedding"], total_size, task_id)
+                zip_file, source_dirs["adapters"], total_size, task_id)
+            self._add_model_files_to_zip(
+                zip_file, source_dirs["models"], total_size, task_id)
+            self._add_model_files_to_zip(
+                zip_file, source_dirs["openvino_model"], total_size, task_id)
 
     def _collect_source_directories(self, project_id, task_id):
         """Collect and validate all source directories needed for the deployment package."""
         source_dirs = {}
 
-        # Model directory
-        model_path = f'./data/tasks/{task_id}/models/checkpoints/ov_model'
-        if not os.path.isdir(model_path):
+        # Adapters directory
+        adapters_path = f'./data/tasks/{task_id}/models/checkpoints/adapters'
+        if not os.path.isdir(adapters_path):
             raise RuntimeError(
-                "Error: Failed to find model weights file directory.")
-        source_dirs["model"] = {
-            "path": pathlib.Path(model_path),
-            "zip_dir_structure": 'rag-toolkit/data/models/llm/'
+                "Error: Failed to find adapters file directory.")
+        source_dirs["adapters"] = {
+            "path": pathlib.Path(adapters_path),
+            "zip_dir_structure": 'model_adapters/'
         }
 
-        # Deployment assets directory
-        deploy_asset_dir = f"./assets/deployment"
-        if not os.path.isdir(deploy_asset_dir):
-            raise RuntimeError("Error: Failed to find deployment assets.")
-        source_dirs["deployment"] = {
-            "path": pathlib.Path(deploy_asset_dir),
-            "zip_dir_structure": ''  # Files will be at the root of the zip
+        # PyTorch model directory
+        pytorch_model_path = f'./data/tasks/{task_id}/models/checkpoints/models'
+        if not os.path.isdir(pytorch_model_path):
+            raise RuntimeError(
+                "Error: Failed to find PyTorch model weights file directory.")
+        source_dirs["models"] = {
+            "path": pathlib.Path(pytorch_model_path),
+            "zip_dir_structure": 'model_weights/'
         }
 
-        # Vector embeddings directory
-        embedding_dir = f"./data/projects/{project_id}/chroma"
-        source_dirs["embedding"] = {
-            "path": pathlib.Path(embedding_dir),
-            "zip_dir_structure": 'rag-toolkit/data/embeddings/'
+        # OpenVINO model directory
+        openvino_model_path = f'./data/tasks/{task_id}/models/checkpoints/ov_model'
+        if not os.path.isdir(openvino_model_path):
+            raise RuntimeError(
+                "Error: Failed to find OpenVINO model weights file directory.")
+        source_dirs["openvino_model"] = {
+            "path": pathlib.Path(openvino_model_path),
+            "zip_dir_structure": 'openvino_models/',
+            "exclude_dirs": ['model_cache']
         }
-        if not os.path.isdir(embedding_dir):
-            logger.warning("Deployment does not have chroma db.")
 
         return source_dirs
 
@@ -155,9 +158,11 @@ class PrepareDeploymentFile():
 
         for dir_info in source_dirs.values():
             dir_path = dir_info["path"]
+            exclude_dirs = dir_info.get("exclude_dirs", [])
             if os.path.exists(dir_path):
                 total_size += self.get_total_size([
-                    str(file) for file in dir_path.rglob('*') if file.is_file()
+                    str(file) for file in dir_path.rglob('*')
+                    if file.is_file() and not any(part in exclude_dirs for part in file.parts)
                 ])
 
         return total_size
@@ -166,9 +171,10 @@ class PrepareDeploymentFile():
         """Add model files to the zip file with progress tracking."""
         folder = dir_info["path"]
         zip_dir_structure = dir_info["zip_dir_structure"]
+        exclude_dirs = dir_info.get("exclude_dirs", [])
 
         for file in folder.rglob('*'):
-            if file.is_file():
+            if file.is_file() and not any(part in exclude_dirs for part in file.parts):
                 arcname = os.path.join(
                     zip_dir_structure, os.path.basename(file))
                 zip_file.write(file, arcname=arcname)

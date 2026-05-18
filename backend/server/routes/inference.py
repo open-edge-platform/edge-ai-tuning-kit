@@ -179,15 +179,31 @@ class OpenAIInferenceService:
             Exception: If container creation fails
         """
         try:
+            model_name = environment.get('SERVED_MODEL_NAME', str(id))
+            command = [
+                "vllm", "serve", model_name,
+                "--dtype=float16",
+                "--enforce-eager",
+                "--port", "8000",
+                "--block-size", "64",
+                "--gpu-memory-util", "0.9",
+                "--no-enable-prefix-caching",
+                "--trust-remote-code",
+                "--disable-sliding-window",
+                "--max-num-batched-tokens=8192",
+                "--max-model-len", "4096",
+                "--quantization", "fp8",
+            ]
             self.docker_client.containers.run(
                 image=f"{image_name}:{image_tag}",
                 name=f"{CONTAINER_PREFIX}-{id}",
                 hostname="evaluation-node",
+                command=command,
                 environment=environment,
                 privileged=True,
                 network="edge-ai-tuning-kit-network",
                 ports={
-                    8000: f"{port}/tcp"
+                    "8000/tcp": port
                 },
                 group_add=[os.environ.get('RENDER_GROUP_ID')],
                 volumes=[
@@ -257,10 +273,10 @@ class OpenAIInferenceService:
         Returns:
             A response dict with status, message, and data
         """
-        image_name = "edge-ai-tuning-kit.backend.serving"
-        image_tag = os.getenv('APP_VER', 'latest')
-        model_path = f"data/tasks/{id}/models/checkpoints/ov_model"
-        ov_model_path = model_path.replace("data", "/llm-data")
+        image_name = "intel/vllm"
+        image_tag = "0.17.0-xpu"
+        model_path = f"data/tasks/{id}/models/checkpoints/models"
+        pytorch_model_path = model_path.replace("data", "/llm-data")
         container_name = f"{CONTAINER_PREFIX}-{id}"
 
         # Validate model path
@@ -309,27 +325,11 @@ class OpenAIInferenceService:
         try:
             logger.info(f"Starting inference service for model id: {id}")
 
-            # Configure environment based on device
-            if device == "xpu":
-                environment = {
-                    'VLLM_OPENVINO_KVCACHE_SPACE': '0',
-                    'VLLM_OPENVINO_DEVICE': 'GPU',
-                }
-            elif device == "cpu":
-                environment = {
-                    'VLLM_OPENVINO_KVCACHE_SPACE': '0',
-                    'VLLM_OPENVINO_CPU_KV_CACHE_PRECISION': 'None',
-                }
-            else:
-                self.response["message"] = f"Device {device} is not supported."
-                self.response["status"] = False
-                return self.response
-
-            # Add model path to environment
-            environment.update({
-                'MODEL_PATH': ov_model_path,
-                'SERVED_MODEL_NAME': ov_model_path,
-            })
+            # Configure environment
+            environment = {
+                'VLLM_WORKER_MULTIPROC_METHOD': 'spawn',
+                'SERVED_MODEL_NAME': pytorch_model_path,
+            }
 
             # Create container in thread pool
             logger.info(f"Creating container for model id: {id}")

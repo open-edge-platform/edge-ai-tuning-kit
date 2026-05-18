@@ -1,9 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0 
 
-import os
 import logging
-
 import docker
 from docker.errors import NotFound
 
@@ -11,10 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def verify_serving_image_available():
-    image_name = "edge-ai-tuning-kit.backend.serving"
-    image_tag = os.getenv('APP_VER', 'latest')
-    tag = f"{image_name}:{image_tag}"
-
+    tag = "intel/vllm:0.17.0-xpu"
     logger.info(f"Verifying if {tag} image available.")
     client = DockerClient()
     isImage = client.verify_image_exist(tag)
