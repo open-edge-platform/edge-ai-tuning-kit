@@ -7,7 +7,7 @@ omegaconf==2.3.0
 requests
 
 trl==0.19.1
-transformers==4.53.3
+transformers>=4.53.3
 sentence-transformers==5.1.0
 sentencepiece==0.2.1
 peft==0.17.1
@@ -16,5 +16,5 @@ git+https://github.com/bitsandbytes-foundation/bitsandbytes.git@multi-backend-re
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 optimum-intel[openvino,nncf]
-openvino==2025.3.0
-openvino-genai==2025.3.0.0
+openvino==2026.1.0
+openvino-genai==2026.1.0.0

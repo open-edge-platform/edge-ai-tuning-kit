@@ -146,8 +146,6 @@ services:
       HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
     volumes:
       - cache-data:/usr/src/app/data
-      - ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/microservices:/usr/src/app/assets/deployment/microservices
-      - ./thirdparty/edge-developer-kit-reference-scripts/usecases/ai/rag-toolkit:/usr/src/app/assets/deployment/rag-toolkit
       - ./backend/workers/llm-finetuning-node/deployment:/usr/src/app
     devices:
       - /dev/dri:/dev/dri

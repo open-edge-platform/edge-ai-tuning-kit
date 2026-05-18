@@ -25,7 +25,7 @@ MIN_DEPLOYMENT_RAM_GB = 6
 MIN_PORT = 1024
 MAX_PORT = 65535
 CONTAINER_PREFIX = "edge-ai-tuning-kit.backend.serving-"
-IMAGE_NAME = "edge-ai-tuning-kit.backend.serving"
+IMAGE_NAME = "intel/vllm:0.17.0-xpu"
 DOCKER_NETWORK = "edge-ai-tuning-kit-network"
 DOCKER_VOLUME = "edge-ai-tuning-kit-data-cache:/llm-data"
 DEVICE_MOUNT = "/dev/dri:/dev/dri"
@@ -288,10 +288,9 @@ class DeploymentService:
             self.response["message"] = "Missing required deployment parameters"
             return self.response
 
-        image_tag = os.getenv('APP_VER', DEFAULT_IMAGE_TAG)
         model_path = f"data/tasks/{model_id}/models/checkpoints/ov_model"
         ov_model_path = model_path.replace("data", "/llm-data")
-        container_name = f"{CONTAINER_PREFIX}{model_id}"
+        container_name = IMAGE_NAME
 
         # Validate model path exists
         if not os.path.exists(model_path):
@@ -299,7 +298,7 @@ class DeploymentService:
             return self.response
 
         # Verify Docker image exists
-        if not self._verify_image_existed(f"{IMAGE_NAME}:{image_tag}"):
+        if not self._verify_image_existed(IMAGE_NAME):
             self.response["message"] = f"Serving service is not available. Please follow the installation guide to install the service first."
             return self.response
 
@@ -322,40 +321,40 @@ class DeploymentService:
             logger.info(
                 f"Starting inferencing service for model id: {model_id}")
 
-            # Configure environment based on device
-            environment: Dict[str, str] = {}
-            if device == "xpu":
-                environment = {
-                    'VLLM_OPENVINO_KVCACHE_SPACE': '0',
-                    'VLLM_OPENVINO_DEVICE': 'GPU',
-                }
-            elif device == "cpu":
-                environment = {
-                    'VLLM_OPENVINO_KVCACHE_SPACE': '0',
-                    'VLLM_OPENVINO_CPU_KV_CACHE_PRECISION': 'None',
-                }
-            else:
-                self.response["message"] = f"Device {device} is not supported."
-                self.response["status"] = False
-                return self.response
+            # Configure environment
+            environment: Dict[str, str] = {
+                'VLLM_WORKER_MULTIPROC_METHOD': 'spawn',
+            }
 
-            # Add model path to environment
-            environment.update({
-                'MODEL_PATH': ov_model_path,
-                'SERVED_MODEL_NAME': ov_model_path,
-            })
+            # Build vllm serve command
+            model_name = data.get('model_name', str(model_id))
+            command = [
+                "vllm", "serve", model_name,
+                "--dtype=float16",
+                "--enforce-eager",
+                "--port", "8000",
+                "--block-size", "64",
+                "--gpu-memory-util", "0.9",
+                "--no-enable-prefix-caching",
+                "--trust-remote-code",
+                "--disable-sliding-window",
+                "--max-num-batched-tokens=8192",
+                "--max-model-len", "4096",
+                "--quantization", "fp8",
+            ]
 
             # Run docker container
             self.docker_client.containers.run(
-                image=f"{IMAGE_NAME}:{image_tag}",
+                image=IMAGE_NAME,
                 name=container_name,
                 hostname=f"serving-node-{model_id}",
+                command=command,
                 environment=environment,
                 privileged=True,
                 shm_size=DEFAULT_SHM_SIZE,
                 network=DOCKER_NETWORK,
                 ports={
-                    8000: f"{host_port}/tcp"
+                    "8000/tcp": host_port
                 },
                 group_add=[os.environ.get('RENDER_GROUP_ID')],
                 volumes=[DOCKER_VOLUME],

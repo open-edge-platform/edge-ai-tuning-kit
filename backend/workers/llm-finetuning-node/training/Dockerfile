@@ -15,6 +15,7 @@ RUN apt-get update \
         ca-certificates \
         gpg-agent \
         software-properties-common \
+        python3-dev \
     && addgroup --system intel --gid 1000 \
     && adduser --system --ingroup intel --uid 1000 --home /home/intel intel
 
