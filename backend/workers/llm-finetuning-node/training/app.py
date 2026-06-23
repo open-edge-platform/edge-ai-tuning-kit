@@ -16,8 +16,10 @@ from celery.signals import worker_ready, worker_shutting_down
 
 from common.callbacks import on_training_callback
 from clients.tasks import TasksService
+from clients.hardware import HardwareService
 from trainer.modules.utils.common import (
     get_accelerator_device_information,
+    get_cpu_info,
 )
 
 logger = get_task_logger(__name__)
@@ -55,10 +57,22 @@ app.conf.task_queues = {
 }
 
 
+def update_hardware_info():
+    cpu = get_cpu_info()
+    gpu = [dev.dict() for dev in get_accelerator_device_information()]
+    service = HardwareService()
+    response = service.update_hardware_info(cpu, gpu)
+    if response:
+        logger.info("Updated node hardware info to server.")
+    else:
+        logger.info("Failed to update node hardware info to server.")
+
+
 @worker_ready.connect
 def init_worker(sender, **k):
     logger.info(
         f"{sender}: Training worker is ready. Running init worker function.")
+    update_hardware_info()
 
 
 @worker_shutting_down.connect

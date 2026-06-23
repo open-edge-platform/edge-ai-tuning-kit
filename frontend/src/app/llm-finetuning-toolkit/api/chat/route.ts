@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     try {
       const result = await streamText({
         model: provider(modelID),
-        messages: convertToModelMessages(messages),
+        messages: await convertToModelMessages(messages),
         maxOutputTokens: maxTokens,
         temperature: temperature,
       });

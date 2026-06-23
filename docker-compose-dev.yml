@@ -179,34 +179,6 @@ services:
       - /dev/dri:/dev/dri
     command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
 
-  telemetry-node:
-    build:
-      context: ./backend/workers/llm-finetuning-node/telemetry
-      dockerfile: Dockerfile
-    image: edge-ai-tuning-kit.backend.telemetry-node:${APP_VER}-DEV
-    container_name: edge-ai-tuning-kit.backend.llm-finetuning.telemetry-node
-    hostname: telemetry-node
-    restart: always
-    group_add:
-      - ${RENDER_GROUP_ID:-992}
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
-      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
-      HF_HOME: ./data/cache
-      HF_TOKEN: $HF_TOKEN
-      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
-    volumes:
-      - cache-data:/usr/src/app/data
-      - ./backend/workers/llm-finetuning-node/telemetry:/usr/src/app
-    devices:
-      - /dev/dri:/dev/dri
-    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
-
   training-node:
     build: 
       context: ./backend/workers/llm-finetuning-node/training

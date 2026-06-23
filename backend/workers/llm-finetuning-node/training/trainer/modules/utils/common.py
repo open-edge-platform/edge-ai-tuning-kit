@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 
 
 import time
+import subprocess  # nosec
 import threading
 import functools
 from typing import List
@@ -38,6 +39,15 @@ def get_accelerator_device_information() -> List[GPUModel]:
         )
         devices.append(gpu_dev)
     return devices
+
+
+def get_cpu_info() -> str:
+    cpu_output = subprocess.check_output(["lscpu"])  # nosec
+    cpu_info = cpu_output.decode("utf-8").strip().split("\n")
+    for line in cpu_info:
+        if "Model name" in line:
+            return line.split(":")[1].strip()
+    return "Unknown"
 
 
 def get_inference_device() -> str:

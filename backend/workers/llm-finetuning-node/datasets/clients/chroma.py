@@ -17,7 +17,7 @@ import chromadb
 from chromadb.config import Settings
 from FlagEmbedding import FlagReranker
 from chromadb.utils import embedding_functions
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
     TextLoader,
     PyPDFLoader,

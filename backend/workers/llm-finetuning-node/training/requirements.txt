@@ -5,6 +5,7 @@ eventlet==0.40.3
 pydantic==2.10.6
 omegaconf==2.3.0
 requests
+protobuf
 
 trl==0.19.1
 transformers>=4.53.3
