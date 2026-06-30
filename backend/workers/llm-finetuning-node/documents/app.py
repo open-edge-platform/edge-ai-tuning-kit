@@ -8,7 +8,7 @@ from celery import Celery
 from celery.signals import worker_ready, worker_shutting_down
 from celery.utils.log import get_task_logger
 
-from clients.chroma import ChromaClient
+from clients.faiss import FaissClient
 
 logger = get_task_logger(__name__)
 load_dotenv(find_dotenv())
@@ -48,7 +48,7 @@ def worker_shutting_down_handler(sig, how, exitcode, ** kwargs):
 @app.task(bind=True, name="document_node:get_text_embeddings", queue="document_queue")
 def get_text_embeddings(self, dataset_id, page, pageSize, source):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         return client.get_all_collection_data(page, pageSize, source)
     except Exception as error:
         logger.error(
@@ -59,7 +59,7 @@ def get_text_embeddings(self, dataset_id, page, pageSize, source):
 @app.task(bind=True, name="document_node:get_text_embeddings_source", queue="document_queue")
 def get_text_embeddings_source(self, dataset_id):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         return client.get_all_sources()
     except Exception as error:
         logger.error(
@@ -70,7 +70,7 @@ def get_text_embeddings_source(self, dataset_id):
 @app.task(bind=True, name="document_node:get_num_embeddings", queue="document_queue")
 def get_num_text_embeddings(self, dataset_id):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         return client.get_num_embeddings()
     except Exception as error:
         logger.error(
@@ -81,7 +81,7 @@ def get_num_text_embeddings(self, dataset_id):
 @app.task(bind=True, name="document_node:query_data", queue="document_queue")
 def query_text_embedding_data(self, dataset_id, query, vectorK=20, vectorP=3):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         print(query)
         return client.query_data(query, vectorK, vectorP)
     except Exception as error:
@@ -93,7 +93,7 @@ def query_text_embedding_data(self, dataset_id, query, vectorK=20, vectorP=3):
 @app.task(bind=True, name="document_node:create_text_embeddings", queue="document_queue")
 def create_text_embeddings(self, dataset_id, file_list, chunk_size, chunk_overlap):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         client.create_collection_data(file_list, chunk_size, chunk_overlap)
         return True
     except Exception as error:
@@ -105,7 +105,7 @@ def create_text_embeddings(self, dataset_id, file_list, chunk_size, chunk_overla
 @app.task(bind=True, name="document_node:delete_text_embedding", queue="document_queue")
 def delete_text_embedding(self, dataset_id, data_uuid):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         return client.delete_data(data_uuid)
     except Exception as error:
         logger.error(
@@ -116,7 +116,7 @@ def delete_text_embedding(self, dataset_id, data_uuid):
 @app.task(bind=True, name="document_node:delete_text_embedding_disk", queue="document_queue")
 def delete_text_embedding_disk(self, dataset_id):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         return client.delete_collection()
     except Exception as error:
         logger.error(
@@ -127,7 +127,7 @@ def delete_text_embedding_disk(self, dataset_id):
 @app.task(bind=True, name="document_node:delete_text_embedding_source", queue="document_queue")
 def delete_text_embedding_source(self, dataset_id, source_filename):
     try:
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         return client.delete_data_by_source(source_filename)
     except Exception as error:
         logger.error(

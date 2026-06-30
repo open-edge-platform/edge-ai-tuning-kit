@@ -62,30 +62,6 @@ services:
     devices:
       - /dev/dri:/dev/dri
 
-  common-node:
-    build:
-      context: ./backend/workers/llm-finetuning-node/common
-      dockerfile: Dockerfile
-    image: edge-ai-tuning-kit.backend.common-node:${APP_VER}-BINARY
-    container_name: edge-ai-tuning-kit.backend.llm-finetuning.common-node
-    hostname: common-node
-    restart: always
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
-      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
-      HF_HOME: ./data/cache
-      HF_TOKEN: $HF_TOKEN
-      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
-      HF_HUB_DOWNLOAD_TIMEOUT: 60
-    volumes:
-      - cache-data:/usr/src/app/data
-    command: "celery -A app worker -E --pool=eventlet --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
-
   dataset-node:
     build:
       context: ./backend/workers/llm-finetuning-node/datasets
@@ -104,33 +80,6 @@ services:
     environment:
       SYCL_CACHE_PERSISTENT: 1
       SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS: 1
-      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
-      HF_HOME: ./data/cache
-      HF_TOKEN: $HF_TOKEN
-      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
-    volumes:
-      - cache-data:/usr/src/app/data
-    devices:
-      - /dev/dri:/dev/dri
-    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
-
-  deployment-node:
-    build:
-      context: ./backend/workers/llm-finetuning-node/deployment
-      dockerfile: Dockerfile
-    image: edge-ai-tuning-kit.backend.deployment-node:${APP_VER}-BINARY
-    container_name: edge-ai-tuning-kit.backend.llm-finetuning.deployment-node
-    hostname: deployment-node
-    restart: always
-    group_add:
-      - ${RENDER_GROUP_ID:-992}
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
       CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       HF_HOME: ./data/cache
@@ -196,7 +145,7 @@ services:
       - cache-data:/usr/src/app/data:rw
     devices:
       - /dev/dri:/dev/dri
-    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+    command: "uv run celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
 
   postgres:
     image: postgres:16

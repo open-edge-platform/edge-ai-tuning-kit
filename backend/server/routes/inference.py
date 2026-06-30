@@ -18,6 +18,7 @@ from starlette.background import BackgroundTasks
 from routes.utils import get_db
 from utils.celery_app import celery_app
 from services.tasks import TaskService
+from services.deployment_package import DeploymentPackageService
 
 # Constants
 logger = logging.getLogger(__name__)
@@ -447,7 +448,9 @@ async def stop_inference_service(
 
 @router.post("/prepare_deployment_file", status_code=200)
 async def prepare_deployment_file(
+    request: Request,
     service: Annotated[TaskService, Depends()],
+    bg_task: BackgroundTasks,
     id: int = Query(..., gt=0, le=ID_MAX)
 ) -> Dict[str, Any]:
     """Prepare a deployment file for a model."""
@@ -460,12 +463,15 @@ async def prepare_deployment_file(
 
     logger.debug("Creating the temporary zipfile...")
     zip_filename = f"./data/tasks/{id}/model_serving_{id}.zip"
-    celery_task_id = celery_app.send_task(
-        name="deployment_node:prepare_deployment_file",
-        args=[project_id, id, zip_filename],
-        queue='deployment_queue'
+
+    db = get_db(request)
+    deployment_service = DeploymentPackageService(db)
+    bg_task.add_task(
+        deployment_service.prepare_deployment_file,
+        project_id,
+        id,
+        zip_filename
     )
-    logger.info(f"Updating task with celery id: {celery_task_id}")
 
     return {
         "status": True,

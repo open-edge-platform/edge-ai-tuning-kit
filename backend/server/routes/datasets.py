@@ -132,7 +132,7 @@ async def create_dataset(service: Annotated[DatasetService, Depends()], dataset:
 
 @router.post("/{id}/text_embedding", status_code=200)
 async def create_text_embedding(chunk_size: int, chunk_overlap: int, id: int = Path(..., gt=0, le=ID_MAX),  files: List[UploadFile] = [UploadFile(...)]):
-    DATASET_PATH = f"./data/projects/{id}/chroma/documents"
+    DATASET_PATH = f"./data/projects/{id}/faiss/documents"
     file_list = []
     processed_list = []
     for file in files:
@@ -222,7 +222,7 @@ async def delete_text_embedding_by_uuid(uuid: str, id: int = Path(..., gt=0, le=
 
 @router.delete("/{id}/text_embeddings/source/{source}", status_code=200)
 async def delete_text_embeddings_by_source(source: str, id: int = Path(..., gt=0, le=ID_MAX)):
-    source_path = f"./data/projects/{id}/chroma/documents/{source}"
+    source_path = f"./data/projects/{id}/faiss/documents/{source}"
     try:
         if os.path.isfile(source_path):
             logger.info(f"Removing the source file: {source_path}")
