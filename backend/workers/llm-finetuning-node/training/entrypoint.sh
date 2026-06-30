@@ -101,7 +101,7 @@ else
 fi
 
 log_info "Detected GPU devices: "
-python -c "import torch; [print(f'[{i}]: {torch.xpu.get_device_properties(i)}') for i in range(torch.xpu.device_count())];"
+uv run python -c "import torch; [print(f'[{i}]: {torch.xpu.get_device_properties(i)}') for i in range(torch.xpu.device_count())];"
 
 # Source Intel OneAPI environment
 ONEAPI_CCL_ENV="/opt/intel/oneapi/ccl/latest/env/vars.sh"

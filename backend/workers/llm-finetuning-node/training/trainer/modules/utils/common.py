@@ -79,6 +79,25 @@ def get_inference_device() -> str:
         return "CPU"
 
 
+
+def get_pytorch_inference_device() -> str:
+    """
+    Select the appropriate PyTorch inference device for bitsandbytes.
+
+    Returns:
+        str: PyTorch device string ("xpu", "cuda", or "cpu").
+    """
+    try:
+        if torch.xpu.is_available():
+            return "xpu"
+    except AttributeError:
+        pass
+
+    if torch.cuda.is_available():
+        return "cuda"
+
+    return "cpu"
+
 def is_rank_zero():
     return not dist.is_initialized() or dist.get_rank() == 0
 

@@ -8,11 +8,52 @@ from fastapi import Request, HTTPException
 
 from routes.utils import get_db
 from models.llm import LLMModel
-from utils.celery_app import celery_app, terminate_celery_task
+from services.model_download import start_download, stop_download
 
 logger = logging.getLogger(__name__)
 EXPORT_PATH = "./data/cache/hub"
 MODEL_PATH = "./data/models/hf"
+
+
+def sync_model_state(db):
+    """Sync model download state between disk and database on startup.
+    
+    If model files exist on disk but the DB says not downloaded, update the DB.
+    If the DB says downloaded but files are missing on disk, correct the DB.
+    This fixes the 'models stuck at 0%' issue after container restart.
+    """
+    models = db.query(LLMModel).all()
+    for model in models:
+        model_exists_on_disk = os.path.isdir(model.model_dir)
+        is_downloaded = model.is_downloaded
+        
+        if model_exists_on_disk and not is_downloaded:
+            logger.info(
+                f"Model {model.model_id} exists on disk but marked as not downloaded. "
+                f"Syncing state to DB..."
+            )
+            db.query(LLMModel).filter(LLMModel.id == model.id).update({
+                "is_downloaded": True,
+                "download_metadata": {
+                    "download_task_id": None,
+                    "status": "SUCCESS",
+                    "progress": 100,
+                }
+            })
+        elif not model_exists_on_disk and is_downloaded:
+            logger.warning(
+                f"Model {model.model_id} marked as downloaded but files missing on disk. "
+                f"Correcting DB state..."
+            )
+            db.query(LLMModel).filter(LLMModel.id == model.id).update({
+                "is_downloaded": False,
+                "download_metadata": {
+                    "download_task_id": None,
+                    "status": "UNAVAILABLE",
+                    "progress": -1,
+                }
+            })
+    db.commit()
 
 
 class LLMService:
@@ -21,6 +62,7 @@ class LLMService:
         self.request = request
 
     async def get_all_llm_models(self, filter={}) -> list():
+        self.db.expire_all()
         results = []
         models = self.db.query(LLMModel).filter_by(**filter).all()
 
@@ -30,6 +72,7 @@ class LLMService:
         return results
 
     async def get_model(self, id):
+        self.db.expire_all()
         result = self.db.query(LLMModel).filter(LLMModel.id == id).first()
         if not result:
             return None
@@ -94,11 +137,13 @@ class LLMService:
         try:
             result = self.db.query(LLMModel).filter(
                 LLMModel.id == id).update(data)
+            self.db.commit()
             return {
                 'status': True,
                 'data': result
             }
         except Exception as error:
+            self.db.rollback()
             return {
                 'status': False,
                 'data': None,
@@ -126,25 +171,9 @@ class LLMService:
                 }
             }
             await self.update_model(id, data)
-            download_task_id = celery_app.send_task(
-                name="common_node:download_model",
-                args=[
-                    "HF_Model_Download",
-                    id,
-                    model_id,
-                    model_dir,
-                    model_revision
-                ],
-                queue="common_queue"
-            )
-            data = {
-                "download_metadata": {
-                    "download_task_id": download_task_id,
-                    "status": "PENDING",
-                    "progress": -1,
-                }
-            }
-            await self.update_model(id, data)
+
+            start_download(id, model_id, model_dir, model_revision)
+
             return {
                 "status": True,
                 "message": f"{model_id} starts downloading successfully"
@@ -163,9 +192,7 @@ class LLMService:
                     'status': False,
                     'message': f"Model {id} not found in database."
                 }
-            if model.download_metadata['download_task_id']:
-                terminate_celery_task(
-                    model.download_metadata['download_task_id'])
+            stop_download(id)
             data = {
                 "is_downloaded": False,
                 "download_metadata": {

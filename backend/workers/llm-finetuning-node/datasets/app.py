@@ -8,7 +8,7 @@ from celery.signals import worker_ready, worker_shutting_down
 from celery.utils.log import get_task_logger
 from celery.contrib.abortable import AbortableTask
 
-from clients.chroma import ChromaClient
+from clients.faiss import FaissClient
 from utils.generator import ChatDatasetGenerator
 
 logger = get_task_logger(__name__)
@@ -56,7 +56,7 @@ def document_data_generation(self, dataset_id, source_filename, num_generations=
             logger.info(f"Task {self.request.id} was aborted before starting.")
             return False
         
-        client = ChromaClient(dataset_id)
+        client = FaissClient(dataset_id)
         total_num_embeddings = client.get_num_embeddings()
 
         if check_abort():

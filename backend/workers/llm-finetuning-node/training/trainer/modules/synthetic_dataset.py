@@ -6,9 +6,9 @@ import argparse
 from omegaconf import OmegaConf
 
 from utils.callbacks import TaskCallback
-from utils.common import get_inference_device
+from utils.common import get_pytorch_inference_device
 from utils.datasets import create_subset_from_dataset
-from utils.inference import OVInference
+from utils.inference import PTInference
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -31,11 +31,9 @@ def generate_synthetic_dataset(args):
             os.path.dirname(train_dataset_path), "eval.json")
         test_dataset_path = os.path.join(
             os.path.dirname(train_dataset_path), "test.json")
-        model = OVInference(
+        model = PTInference(
             model_path="./data/models/hf/Mistral-7B-Instruct-v0.3",
-            converted_model_path="./data/models/ov/Mistral-7B-Instruct-v0.3",
-            device=get_inference_device(),
-            model_precision="int4"
+            device=get_pytorch_inference_device(),
         )
         logger.info("Creating synthetic eval dataset ...")
         model.generate_synthetic_dataset(

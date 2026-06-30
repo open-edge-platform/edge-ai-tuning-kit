@@ -2,21 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0 
 
 import os
-import sys
-__import__('pysqlite3')
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
 import re
 import ast
 import time
 import uuid
 import shutil
 import logging
-import chromadb
 
-from chromadb.config import Settings
 from FlagEmbedding import FlagReranker
-from chromadb.utils import embedding_functions
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
     TextLoader,
@@ -25,33 +20,23 @@ from langchain_community.document_loaders import (
     UnstructuredPowerPointLoader,
 )
 
-EMBEDDING_MODEL = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-large-en-v1.5")
+EMBEDDING_MODEL = SentenceTransformerEmbeddings(model_name="BAAI/bge-large-en-v1.5")
 RERANKER_MODEL = FlagReranker("BAAI/bge-reranker-base", use_fp16=True)
 
-class Score:
-    def __init__(self, page_content, metadata, new_score=None):
-        self.page_content = page_content
-        self.metadata = metadata
-        self.new_score = new_score
-
-class ChromaClient:
+class FaissClient:
     def __init__(self, dataset_id) -> None:
         self.logger = logging.getLogger(__name__)
-        self.db_dir = f"/usr/src/app/data/projects/{dataset_id}/chroma"
-        self.doc_dir = f"/usr/src/app/data/projects/{dataset_id}/chroma/documents"
+        self.base_dir = f"/usr/src/app/data/projects/{dataset_id}"
+        self.faiss_path = f"{self.base_dir}/faissdb"
+        self.doc_dir = f"{self.base_dir}/faiss/documents"
         
-        if not os.path.isdir(self.db_dir):
-            os.makedirs(self.db_dir, exist_ok=True)
+        if not os.path.isdir(self.faiss_path):
+            os.makedirs(self.base_dir, exist_ok=True)
+        if not os.path.isdir(self.doc_dir):
+            os.makedirs(self.doc_dir, exist_ok=True)
 
         self.embedding = EMBEDDING_MODEL
         self.reranker = RERANKER_MODEL
-        self.collection_name = "text-embeddings"
-        self.client = chromadb.PersistentClient(self.db_dir, settings=Settings(anonymized_telemetry=False))
-        self.client.get_or_create_collection(
-            self.collection_name,
-            metadata={"hnsw:space": "cosine"},
-            embedding_function=self.embedding
-        )
 
     def _read_file(self, file_path):
         if not os.path.isfile(file_path):
@@ -92,35 +77,36 @@ class ChromaClient:
         else:
             return True
 
+    def _load_db(self):
+        """Load existing FAISS database or return None if not found."""
+        if not os.path.exists(self.faiss_path):
+            return None
+        return FAISS.load_local(
+            self.faiss_path, self.embedding, allow_dangerous_deserialization=True
+        )
+
+    def _save_db(self, db):
+        """Persist FAISS database to disk."""
+        os.makedirs(self.faiss_path, exist_ok=True)
+        db.save_local(self.faiss_path)
+
     def _save_text_embeddings(self, text_chunks):
         try:
-            collection = self.client.get_or_create_collection(
-                name=self.collection_name,
-                metadata={"hnsw:space": "cosine"},
-                embedding_function=self.embedding
-            )
-
-            texts = [doc.page_content for doc in text_chunks]
-            metadatas = [doc.metadata for doc in text_chunks]
-            ids = [str(uuid.uuid4()) for doc in text_chunks]
-
-            collection.add(
-                metadatas=metadatas,
-                documents=texts,
-                ids=ids
-            )
+            db = self._load_db()
+            if db is not None:
+                db.add_documents(text_chunks)
+            else:
+                db = FAISS.from_documents(text_chunks, self.embedding)
+            self._save_db(db)
             return True
         except Exception as error:
             self.logger.error(
                 f"Failed to save embeddings from vector db. Error: {error}")
             return False
 
-    def _query_embeddings(self, collection, query, vectorK):
-        results = collection.query(
-            query_texts=[query],
-            n_results=vectorK
-        )
-        return results['documents'][0]
+    def _query_embeddings(self, db, query, vectorK):
+        results = db.similarity_search(query, k=vectorK)
+        return [doc.page_content for doc in results]
 
     def _rerank_embeddings(self, query, text_embeddings_results, vectorP):
         scores = self.reranker.compute_score(
@@ -137,74 +123,52 @@ class ChromaClient:
             filtered_reranked_results = reranked_results[:vectorP]
         return filtered_reranked_results
 
-    def get_num_embeddings(self):
+    def get_all_collection_data(self, page, pageSize, source=None):
         try:
-            collection = self.client.get_or_create_collection(
-                name=self.collection_name,
-                embedding_function=self.embedding
-            )
-            data = collection.get()
-            return len(data["ids"])
-        except Exception as error:
-            self.logger.error(
-                f"Failed to get number of total embeddings from vector db. Error: {error}")
+            db = self._load_db()
+            if db is None:
+                return None
 
-    def get_all_collection_data(self, page, pageSize, source):
-        try:
-            collection = self.client.get_or_create_collection(
-                name=self.collection_name,
-                embedding_function=self.embedding
-            )
+            # Retrieve all documents from the vector store
+            all_docs = db.get_by_ids(list(db.index_to_docstore_id.values()))
+
+            # Filter by source if specified
             if source:
-                data = collection.get(where={"source": source})
-            else:
-                data = collection.get()
-            num_embeddings = len(data["ids"])
-            doc_chunk_list = [
-                {
-                    "ids": data["ids"][x],
-                    "chunk": data["documents"][x],
-                    "source": data["metadatas"][x]["source"].split("/")[-1],
-                    "page": data["metadatas"][x]["page"],
-                }
-                for x in range(num_embeddings)
-            ]
-            doc_chunk_list = sorted(doc_chunk_list, key=lambda x: x['page'])
-            start_index = (page - 1) * pageSize
-            end_index = start_index + pageSize
-            paginated_data = doc_chunk_list[start_index:end_index]
-            data = {
-                "num_embeddings": num_embeddings,
-                "doc_chunks": paginated_data,
-                "current_page": page,
-                "total_pages": (num_embeddings + pageSize - 1) // pageSize,
+                all_docs = [doc for doc in all_docs if doc.metadata.get("source") == source]
+
+            num_data = len(all_docs)
+
+            # Apply pagination
+            start = (page - 1) * pageSize
+            end = min(start + pageSize, num_data)
+
+            doc_chunks = []
+            for i in range(start, end):
+                doc = all_docs[i]
+                doc_chunks.append({
+                    "chunk_id": i,
+                    "id": doc.id,
+                    "chunk": doc.page_content,
+                    "metadata": doc.metadata
+                })
+
+            return {
+                "num_embeddings": num_data,
+                "doc_chunks": doc_chunks
             }
-            return data
         except Exception as error:
             self.logger.error(
-                f"Failed to retrieve get collection data from vector db. Error: {error}")
-            return {
-                "num_embeddings": num_embeddings,
-                "doc_chunks": {
-                    "ids": [],
-                    "chunk": [],
-                    "source": [],
-                    "page": [],
-                },
-                "current_page": page,
-                "total_pages": (num_embeddings + pageSize - 1) // pageSize,
-            }
+                f"Failed to retrieve all the data from vector db. Error: {error}")
+            return None
 
     def get_all_sources(self):
         try:
-            collection = self.client.get_or_create_collection(
-                name=self.collection_name,
-                embedding_function=self.embedding
-            )
-            data = collection.get()
-            num_data = len(data["ids"])
-            sources_list = [data["metadatas"][x]["source"].split(
-                "/")[-1] for x in range(num_data)]
+            db = self._load_db()
+            if db is None:
+                return []
+
+            all_docs = db.get_by_ids(list(db.index_to_docstore_id.values()))
+            sources_list = [doc.metadata.get("source", "").split("/")[-1] for doc in all_docs]
             unique_source_list = list(set(sources_list))
             return unique_source_list
         except Exception as error:
@@ -212,21 +176,31 @@ class ChromaClient:
                 f"Failed to retrieve all the data sources from vector db. Error: {error}")
             return []
 
+    def get_num_embeddings(self):
+        try:
+            db = self._load_db()
+            if db is None:
+                return 0
+            return db.index.ntotal
+        except Exception as error:
+            self.logger.error(
+                f"Failed to retrieve the number of embeddings from vector db. Error: {error}")
+            return 0
+
     def query_data(self, query, vectorK=20, vectorP=3):
         try:
-            collection = self.client.get_collection(
-                name=self.collection_name,
-                embedding_function=self.embedding
-            )
+            db = self._load_db()
+            if db is None:
+                return []
+
             start_time = time.perf_counter()
             text_embeddings_results = self._query_embeddings(
-                collection, query, vectorK)
+                db, query[0], vectorK)
             embeddings_elapsed_time = time.perf_counter() - start_time
             self.logger.info(
                 f"Embeddings performance: {embeddings_elapsed_time:.4} secs")
 
             start_time = time.perf_counter()
-            # Using the original query here for reranking
             reranked_results = self._rerank_embeddings(
                 query[0], text_embeddings_results, vectorP)
             reranker_elapsed_time = time.perf_counter() - start_time
@@ -243,7 +217,7 @@ class ChromaClient:
         processed_list = ast.literal_eval(processed_list)
         for file_name in processed_list:
             try:
-                file_path = f"{self.db_dir}/documents/{file_name}"
+                file_path = f"{self.doc_dir}/{file_name}"
                 documents = self._read_file(file_path)
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=int(chunk_size),
@@ -274,7 +248,7 @@ class ChromaClient:
 
                 self._save_text_embeddings(verified_text_chunks)
                 self.logger.info(
-                    f"Text embeddings created saved in {self.db_dir}")
+                    f"Text embeddings created saved in {self.faiss_path}")
             except Exception as error:
                 self.logger.error(
                     f"Failed to create collection data. Error: {error}")
@@ -283,31 +257,34 @@ class ChromaClient:
             f"Text embeddings created successfully.")
         return True
 
-    def delete_data(self, uuid):
+    def delete_data(self, doc_uuid):
         try:
-            collection = self.client.get_collection(
-                name=self.collection_name,
-                embedding_function=self.embedding
-            )
-            collection.delete(
-                ids=[str(uuid)]
-            )
+            db = self._load_db()
+            if db is None:
+                return False
+
+            db.delete([str(doc_uuid)])
+            self._save_db(db)
             return True
         except Exception as error:
             self.logger.error(
-                f"Failed to delete data: {uuid} from vector db. Error: {error}")
+                f"Failed to delete data: {doc_uuid} from vector db. Error: {error}")
             return False
 
     def delete_data_by_source(self, source):
         try:
-            collection = self.client.get_collection(
-                name=self.collection_name,
-            )
-            response = collection.get(
-                where={"source": source},
-            )
-            doc_ids = [doc_id for doc_id in response["ids"]]
-            collection.delete(ids=doc_ids)
+            db = self._load_db()
+            if db is None:
+                return False
+
+            all_docs = db.get_by_ids(list(db.index_to_docstore_id.values()))
+            doc_ids_to_delete = [
+                doc.id for doc in all_docs if doc.metadata.get("source") == source
+            ]
+
+            if doc_ids_to_delete:
+                db.delete(doc_ids_to_delete)
+                self._save_db(db)
             return True
         except Exception as error:
             self.logger.error(
@@ -315,8 +292,14 @@ class ChromaClient:
             return False
 
     def delete_collection(self):
-        if not os.path.isdir(self.db_dir):
-            self.logger.warning(f"Unable to find {self.db_dir}")
-            return False
-        shutil.rmtree(self.db_dir)
+        # Remove FAISS DB
+        if os.path.exists(self.faiss_path):
+            if os.path.isdir(self.faiss_path):
+                shutil.rmtree(self.faiss_path)
+            else:
+                os.remove(self.faiss_path)
+        # Remove documents directory
+        faiss_dir = f"{self.base_dir}/faiss"
+        if os.path.isdir(faiss_dir):
+            shutil.rmtree(faiss_dir)
         return True

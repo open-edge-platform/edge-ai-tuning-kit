@@ -5,8 +5,8 @@ import json
 import argparse
 from omegaconf import OmegaConf
 
-from utils.common import get_inference_device
-from utils.inference import OVInference
+from utils.common import get_pytorch_inference_device
+from utils.inference import PTInference
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -16,13 +16,10 @@ def main(args):
     config = OmegaConf.load(args.config)
     task_id = config.logging_args.task_id
     test_dataset_path = config.dataset_args.test_dataset_path
-    quant_format = "int4"
-    logger.info("Converting and quantizing model ...")
-    model = OVInference(
+    logger.info("Loading model with bitsandbytes quantization ...")
+    model = PTInference(
         model_path=f"./data/tasks/{task_id}/models/checkpoints/models",
-        converted_model_path=f"./data/tasks/{task_id}/models/checkpoints/ov_model",
-        device=get_inference_device(),
-        model_precision=quant_format
+        device=get_pytorch_inference_device(),
     )
 
     logger.info("Running evaluation ...")

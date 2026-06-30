@@ -8,7 +8,6 @@ from omegaconf import OmegaConf
 
 import torch
 import torch.distributed as dist
-import intel_extension_for_pytorch
 from trl import SFTTrainer, SFTConfig
 from peft import LoraConfig, get_peft_model, AutoPeftModelForCausalLM
 from transformers import AutoTokenizer, AutoModelForCausalLM, EarlyStoppingCallback

@@ -21,6 +21,7 @@ from routes import common, tasks, projects, datasets, data, llm, inference, depl
 from models.tasks import create_default_running_task
 from models.llm import inject_default_model_data
 from models.common import inject_default_hardware_data
+from services.llm import sync_model_state
 from utils.database_client import SessionLocal, init_db, run_migrations
 from utils.docker_client import verify_serving_image_available
 import traceback
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI):
     app.state.database = SessionLocal()
     inject_default_hardware_data(app.state.database)
     inject_default_model_data(app.state.database)
+    sync_model_state(app.state.database)
     create_default_running_task(app.state.database)
     # run_migrations()
     yield

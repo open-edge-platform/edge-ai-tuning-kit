@@ -8,11 +8,9 @@ from omegaconf import OmegaConf
 
 import torch
 import torch.distributed as dist
-import intel_extension_for_pytorch
 from trl import SFTTrainer, SFTConfig
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model, AutoPeftModelForCausalLM
 from transformers import AutoTokenizer, AutoModelForCausalLM, EarlyStoppingCallback, BitsAndBytesConfig
-from intel_extension_for_pytorch.llm.functional.utils import ipex_update_causal_mask
 
 from utils.common import is_rank_zero
 from utils.callbacks import CustomCallback
@@ -130,8 +128,6 @@ class QLORATrainer:
 
     def train(self, train_dataset, eval_dataset, training_args, callbacks=[]):
         logger.info("Initializing trainer ...")
-        ipex_update_causal_mask(self.model)
-        
         self.trainer = SFTTrainer(
             model=self.model,
             train_dataset=train_dataset,

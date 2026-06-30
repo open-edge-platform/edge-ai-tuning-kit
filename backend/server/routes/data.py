@@ -104,7 +104,7 @@ async def delete_data(service: Annotated[DataService, Depends()], id: int = Path
     elif result == 2:
         response = {
             "status": False,
-            "message": f"Failed to delete dataset, error while deleting in chromaDB."
+            "message": f"Failed to delete dataset, error while deleting in FAISS."
         }
         return response
     else:

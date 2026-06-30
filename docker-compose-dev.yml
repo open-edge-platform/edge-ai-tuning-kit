@@ -67,30 +67,6 @@ services:
       - /dev/dri:/dev/dri
     command: "python3 -m uvicorn main:app --host $SERVER_HOST --port $SERVER_PORT --reload --log-config ./dev_logger.yaml"
 
-  common-node:
-    build:
-      context: ./backend/workers/llm-finetuning-node/common
-      dockerfile: Dockerfile
-    image: edge-ai-tuning-kit.backend.common-node:${APP_VER}-DEV
-    container_name: edge-ai-tuning-kit.backend.llm-finetuning.common-node
-    hostname: common-node
-    restart: always
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
-      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
-      HF_HOME: ./data/cache
-      HF_TOKEN: $HF_TOKEN
-      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
-    volumes:
-      - cache-data:/usr/src/app/data
-      - ./backend/workers/llm-finetuning-node/common:/usr/src/app
-    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
-
   dataset-node:
     build:
       context: ./backend/workers/llm-finetuning-node/datasets
@@ -117,36 +93,6 @@ services:
     volumes:
       - cache-data:/usr/src/app/data
       - ./backend/workers/llm-finetuning-node/datasets:/usr/src/app
-    devices:
-      - /dev/dri:/dev/dri
-    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
-
-  deployment-node:
-    build:
-      context: ./backend/workers/llm-finetuning-node/deployment
-      dockerfile: Dockerfile
-    image: edge-ai-tuning-kit.backend.deployment-node:${APP_VER}-DEV
-    container_name: edge-ai-tuning-kit.backend.llm-finetuning.deployment-node
-    hostname: deployment-node
-    restart: always
-    group_add:
-      - ${RENDER_GROUP_ID:-992}
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-    environment:
-      CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
-      SYCL_CACHE_PERSISTENT: 1
-      SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS: 1
-      HF_HOME: ./data/cache
-      HF_TOKEN: $HF_TOKEN
-      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
-    volumes:
-      - cache-data:/usr/src/app/data
-      - ./backend/workers/llm-finetuning-node/deployment:/usr/src/app
     devices:
       - /dev/dri:/dev/dri
     command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
@@ -208,7 +154,7 @@ services:
       - ./backend/workers/llm-finetuning-node/training:/usr/src/app
     devices:
       - /dev/dri:/dev/dri
-    command: "celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
+    command: "uv run celery -A app worker -E --pool=eventlet --concurrency=1 --loglevel=INFO --statedb=/usr/src/app/data/worker.state"
 
   postgres:
     image: postgres:16
