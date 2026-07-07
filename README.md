@@ -8,6 +8,7 @@ The Edge AI Tuning Kit is a comprehensive solution for creating, tailoring, and 
 
 ## Latest Update 🔥
 
+- **[2026/05]** Ubuntu 26.04 LTS support.
 - **[2025/09]** Added support for Intel® Arc™ Pro B50 Graphics & Intel® Arc™ Pro B60 Graphics.
 - **[2025/06]** Added support for Intel® Arc™ B580 Graphics and introduced a new user interface for an improved experience.
 - **[2025/06]** Initial release of Edge AI Tuning Kit v2025.1.0.
@@ -50,13 +51,13 @@ sudo usermod -aG docker $USER
 ### 6. Setup the application
 Run the setup using the command below.
 ```bash
-./setup.sh -b
+./setup.sh --build
 ```
 
 ### 7. Run the application
 Browse to http://localhost after the application started successfully.
 ```bash
-./setup.sh -r
+./run.sh --start
 ```
 
 ## FAQs
@@ -78,7 +79,7 @@ HOST=127.0.0.1
 ### Stop the application
 Run the command below to stop the application.
 ```bash
-./setup.sh -s
+./run.sh --stop
 ```
 
 ### Remove the data files
