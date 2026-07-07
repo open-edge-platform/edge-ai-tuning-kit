@@ -1,40 +1,61 @@
 #!/bin/bash
-# Copyright (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0 
+# SPDX-License-Identifier: Apache-2.0
 
-set -e
+set -euo pipefail
 
-APP_VERSION=2025.1
-SERVER_IP=backend
-RENDER_GROUP_ID=$(getent group render | cut -d: -f3)
+readonly APP_VERSION=2025.1
+readonly SERVER_IP=backend
+
+WORKDIR="$(cd "$(dirname "$0")" && pwd)"
+readonly WORKDIR
+
+RENDER_GROUP_ID="$(getent group render | cut -d: -f3)"
 export RENDER_GROUP_ID
-DOCKER_GROUP_ID=$(getent group docker | cut -d: -f3)
+
+DOCKER_GROUP_ID="$(getent group docker | cut -d: -f3)"
 export DOCKER_GROUP_ID
 
-WORKDIR=$PWD
+# ── Logging ───────────────────────────────────────────────────────────
 
-# verify platform
+# Three colours only — stripped when stdout is not a tty
+C_GREEN='\033[32m'
+C_YELLOW='\033[33m'
+C_RED='\033[31m'
+C_RESET='\033[0m'
+
+if [[ ! -t 1 ]]; then
+    C_GREEN=''; C_YELLOW=''; C_RED=''; C_RESET=''
+fi
+
+readonly C_GREEN C_YELLOW C_RED C_RESET
+
+ok()   { printf "  ${C_GREEN}✓${C_RESET}  %s\n" "$*"; }
+warn() { printf "  ${C_YELLOW}⚠${C_RESET}  %s\n" "$*" >&2; }
+err()  { printf "  ${C_RED}✗${C_RESET}  %s\n" "$*" >&2; }
+
+# ── Verification ──────────────────────────────────────────────────────
+
 verify_platform() {
-    echo -e "\n# Verifying platform"
-    cpu_model=$(< /proc/cpuinfo grep -m1 "model name" | cut -d: -f2 | sed 's/^[ \t]*//')
-    echo "- CPU model: ${cpu_model}"
+    local cpu_model
+    cpu_model="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^[[:space:]]*//')"
+    ok "CPU: ${cpu_model}"
 }
 
 verify_ram() {
-    echo -e "\n# Verifying RAM"
-    total_ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    total_ram_gb=$((total_ram_kb/1000**2))
+    local total_ram_kb total_ram_gb
+    total_ram_kb="$(grep MemTotal /proc/meminfo | awk '{print $2}')"
+    total_ram_gb=$((total_ram_kb / 1000 ** 2))
 
-    if (( $(echo "$total_ram_gb >= 64" | bc -l) )); then
-        echo "- RAM: ${total_ram_gb} GB"
+    if (( total_ram_gb >= 64 )); then
+        ok "RAM: ${total_ram_gb} GB"
     else
-        echo "Minimum RAM required is 64 GB."
+        err "Minimum RAM required is 64 GB (found ${total_ram_gb} GB)"
         exit 1
     fi
 }
 
-verify_gpu_available() {
-    gpu_list=(
+verify_gpu() {
+    local -a gpu_list=(
         "Intel(R) Arc(TM) A770 Graphics"
         "Intel(R) Arc(TM) A770M Graphics"
         "Intel(R) Data Center GPU Flex 170"
@@ -45,242 +66,202 @@ verify_gpu_available() {
         "Intel(R) Graphics \[0xe211\]"
     )
 
-    echo -e "\n# Identifying GPU"
-
-    if ! command -v clinfo &> /dev/null; then
-        echo -e "- clinfo command not found. Please install clinfo to proceed"
+    if ! command -v clinfo &>/dev/null; then
+        err "clinfo not found — install it before proceeding"
         exit 1
     fi
-    
-    found=false
+
+    local gpu gpu_model found=false
     for gpu in "${gpu_list[@]}"; do
         if clinfo -l | grep -q "$gpu"; then
             found=true
-            gpu_model=$gpu
+            gpu_model="$gpu"
             break
         fi
     done
+
     if $found; then
-        echo -e "- GPU: ${gpu_model}"
+        ok "GPU: ${gpu_model}"
     else
-        echo -e "- The GPU used in the system doesn't meet the requirement."
-        echo -e "Supported GPU devices:"
-        echo -e "- Intel(R) Arc(TM) A770 Graphics"
-        echo -e "- Intel(R) Arc(TM) A770M Graphics"
-        echo -e "- Intel(R) Data Center GPU Flex 170"
-        echo -e "- Intel(R) Arc(TM) B580 Graphics"
-        echo -e "- Intel(R) Arc(TM) Pro B50 Graphics"
-        echo -e "- Intel(R) Arc(TM) Pro B60 Graphics"
-        echo -e "- Intel(R) Graphics \[0xe20b\]"
-        echo -e "- Intel(R) Graphics \[0xe211\]"
+        err "Unsupported GPU"
+        echo "Supported GPUs:" >&2
+        for gpu in "${gpu_list[@]}"; do
+            echo "  - ${gpu}" >&2
+        done
         exit 1
     fi
 }
 
-install_packages(){
-    local PACKAGES=("$@")
-    local INSTALL_REQUIRED=0
-    for PACKAGE in "${PACKAGES[@]}"; do
-        INSTALLED_VERSION=$(dpkg-query -W -f='${Version}' "$PACKAGE" 2>/dev/null || true)
-        LATEST_VERSION=$(apt-cache policy "$PACKAGE" | grep Candidate | awk '{print $2}')
-        
-        if [ -z "$INSTALLED_VERSION" ] || [ "$INSTALLED_VERSION" != "$LATEST_VERSION" ]; then
-            echo "$PACKAGE is not installed or not the latest version."
-            INSTALL_REQUIRED=1
-        fi
-    done
-    if [ $INSTALL_REQUIRED -eq 1 ]; then
-        sudo -E apt update
-        sudo -E apt install -y "${PACKAGES[@]}"
+verify_docker() {
+    if command -v docker &>/dev/null; then
+        ok "Docker: $(docker --version)"
+    else
+        err "Docker not installed — https://docs.docker.com/engine/install/ubuntu/"
+        exit 1
     fi
 }
 
-install_python_packages() {
-    local packages=("$@")  # Capture all arguments into an array
-    for PACKAGE_NAME in "${packages[@]}"; do
-        if pip show "$PACKAGE_NAME" &> /dev/null; then
-            echo "Package '$PACKAGE_NAME' is installed. Skipping installation"
-        else
-            echo "Package '$PACKAGE_NAME' is not installed. Installing ..."
-            python3 -m pip install "$PACKAGE_NAME"
-        fi
-    done
-}
-
-verify_docker() {
-    echo -e "\n# Verifying Docker"
-    if command -v "docker" > /dev/null 2>&1; then
-        echo "- Docker version: $(docker --version)"
+verify_docker_group() {
+    if groups "$USER" | grep -qw docker; then
+        ok "User is in 'docker' group"
     else
-        echo "- Docker is not installed. Please browse to the following link to install Docker: https://docs.docker.com/engine/install/ubuntu/"
+        err "User not in 'docker' group"
+        echo "Fix: sudo usermod -aG docker \$USER  (then re-login)" >&2
         exit 1
     fi
 }
 
 verify_os() {
-    echo -e "\n# Verifying Operating System"
-    # shellcheck source=/dev/null
-    if grep -q 'Ubuntu 22.04' /etc/os-release; then
-        echo "- Operating System: Ubuntu 22.04 LTS"
-    elif grep -q 'Ubuntu 24.04' /etc/os-release; then
-        echo "- Operating System: Ubuntu 24.04 LTS"
-    elif grep -q 'Ubuntu 26.04' /etc/os-release; then
-        echo "- Operating System: Ubuntu 26.04 LTS"
+    local os_release
+    os_release="$(cat /etc/os-release)"
+
+    if echo "$os_release" | grep -q 'Ubuntu 22.04'; then
+        ok "OS: Ubuntu 22.04 LTS"
+    elif echo "$os_release" | grep -q 'Ubuntu 24.04'; then
+        ok "OS: Ubuntu 24.04 LTS"
+    elif echo "$os_release" | grep -q 'Ubuntu 26.04'; then
+        ok "OS: Ubuntu 26.04 LTS"
     else
-        echo "- Operating System: Unsupported OS. Please use Ubuntu 22.04, 24.04 LTS or 26.04 LTS."
+        err "Unsupported OS — use Ubuntu 22.04 / 24.04 / 26.04 LTS"
         exit 1
     fi
 }
 
-verify_huggingface_token() {
-    echo -e "\n# Verifying Hugging Face token is available ..."
-    if [[ -z "$HF_TOKEN" ]]; then
-        echo -e "Input your Hugging Face token"
-        read -rsp 'Hugging Face token: ' HUGGINGFACE_TOKEN
-        export HF_TOKEN="$HUGGINGFACE_TOKEN"
-    else
-        echo -e "Login in using the token set on environment variable"
-    fi
-}
+# ── Package management ────────────────────────────────────────────────
 
-update_password_for_services() {
-    echo -e "\n# Updating password for the services."
-    echo -e "- Creating a random password for redis service."
-    random_data=$(openssl rand -base64 8)
-    redis_password=$(echo "$random_data" | tr '+/' 'AB')
-    sed -i -e "s/REDIS_PASSWORD=redis/REDIS_PASSWORD=$(echo "$redis_password" | sed -e 's/[\/&]/\\&/g')/" "$WORKDIR"/.env
+install_packages() {
+    local -a packages=("$@")
+    local install_required=0
 
-    echo -e "- Creating a random user for postgres service."
-    random_data=$(openssl rand -base64 8)
-    postgres_user=$(echo "$random_data" | tr '+/' 'AB')
-    sed -i -e "s/POSTGRES_USER=postgres/POSTGRES_USER=$(echo "$postgres_user" | sed -e 's/[\/&]/\\&/g')/" "$WORKDIR"/.env
+    for pkg in "${packages[@]}"; do
+        local installed latest
+        installed="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)"
+        latest="$(apt-cache policy "$pkg" | grep Candidate | awk '{print $2}')"
 
-    echo -e "- Creating a random password for postgres service."
-    random_data=$(openssl rand -base64 8)
-    postgres_password=$(echo "$random_data" | tr '+/' 'AB')
-    sed -i -e "s/POSTGRES_PASSWORD=postgres/POSTGRES_PASSWORD=$(echo "$postgres_password" | sed -e 's/[\/&]/\\&/g')/" "$WORKDIR"/.env
-}
-
-verify_env_template() {
-    echo -e "\n# Verifying the .env file is available."
-    FOUND_ENV=0
-    if [ -f "$WORKDIR/.env" ]; then
-        echo -e "- .env file available."
-        FOUND_ENV=1
-    fi
-
-    if [ ! $FOUND_ENV -eq 1 ]; then
-        if [ ! -f "/home/$USER/.cache/intel-eadat/.env" ]; then
-            echo -e "- Caching the .env file in /home/$USER/.cache/intel-eadat/"
-            mkdir -p "/home/$USER/.cache/intel-eadat/"
-            cp "$WORKDIR/.env.template" "$WORKDIR/.env"
-            update_password_for_services
-            cp "$WORKDIR"/.env "/home/$USER/.cache/intel-eadat/.env"
-        else
-            echo -e "- Reusing the .env from /home/$USER/.cache/intel-eadat/.env"
-            cp "/home/$USER/.cache/intel-eadat/.env" .env
+        if [[ -z "$installed" || "$installed" != "$latest" ]]; then
+            install_required=1
         fi
+    done
+
+    if (( install_required )); then
+        sudo -E apt-get update
+        sudo -E apt-get install -y "${packages[@]}"
     fi
 }
 
-verify_docker_group_permission() {
-    echo -e "\n# Verifying user permission in docker group"
-    if groups "$USER" | grep -qw "docker"; then
-        echo -e "- User permission available"
+# ── Environment ───────────────────────────────────────────────────────
+
+generate_random_password() {
+    openssl rand -base64 8 | tr '+/' 'AB'
+}
+
+update_env_passwords() {
+    local redis_pw postgres_user postgres_pw
+    redis_pw="$(generate_random_password)"
+    postgres_user="$(generate_random_password)"
+    postgres_pw="$(generate_random_password)"
+
+    sed -i "s|REDIS_PASSWORD=redis|REDIS_PASSWORD=${redis_pw}|" "${WORKDIR}/.env"
+    sed -i "s|POSTGRES_USER=postgres|POSTGRES_USER=${postgres_user}|" "${WORKDIR}/.env"
+    sed -i "s|POSTGRES_PASSWORD=postgres|POSTGRES_PASSWORD=${postgres_pw}|" "${WORKDIR}/.env"
+
+    ok "Randomized Redis password"
+    ok "Randomized PostgreSQL user & password"
+}
+
+setup_env() {
+    local cache_env="/home/${USER}/.cache/intel-eadat/.env"
+
+    if [[ -f "${WORKDIR}/.env" ]]; then
+        ok ".env already present"
+        return
+    fi
+
+    if [[ -f "$cache_env" ]]; then
+        ok "Reusing cached .env"
+        cp "$cache_env" "${WORKDIR}/.env"
     else
-        echo -e "- User permission is not available in docker group. You can add the user to the docker group using the following command"
-        echo -e "- Command: sudo usermod -aG docker $USER"
-        exit 1
+        echo "Creating .env from template..." >&2
+        mkdir -p "$(dirname "$cache_env")"
+        cp "${WORKDIR}/.env.template" "${WORKDIR}/.env"
+        update_env_passwords
+        cp "${WORKDIR}/.env" "$cache_env"
     fi
 }
+
+# ── Build ─────────────────────────────────────────────────────────────
 
 install_dependencies() {
-    echo -e "\n# Installing dependencies"
     if grep -q 'Ubuntu 26.04' /etc/os-release; then
-        echo -e "- Installing dependencies for Ubuntu 26.04 ..."
-        install_packages "dpclang-6" "onedpl-headers"
+        echo "Installing Ubuntu 26.04 dependencies..." >&2
+        install_packages dpclang-6 onedpl-headers
+        ok "Dependencies installed"
     fi
 }
 
-setup_app() {
-    echo -e "\n# Building the docker images for application."
+build_images() {
+    echo "Pulling intel/vllm:0.17.0-xpu..." >&2
     docker pull intel/vllm:0.17.0-xpu
-    APP_VER=$APP_VERSION docker compose -f docker-compose.yml build --build-arg SERVER_IP="$SERVER_IP"
+    echo "Building Docker images..." >&2
+    APP_VER="$APP_VERSION" docker compose -f "${WORKDIR}/docker-compose.yml" build --build-arg SERVER_IP="$SERVER_IP"
+    ok "Docker images built"
 }
 
+# ── Main ──────────────────────────────────────────────────────────────
+
 build() {
+    echo ""
+    echo "=========================================="
+    echo "  Edge AI Tuning Kit — Setup"
+    echo "=========================================="
+
+    echo ""
+    echo "Verifying system..."
     verify_os
     verify_platform
     verify_ram
-    verify_gpu_available
+    verify_gpu
     verify_docker
-    verify_docker_group_permission
-    setup_app
-    echo -e "\n# App built successfully. Please reboot your system before running the start command."
-}
+    verify_docker_group
 
-verify_docker_group_id() {
-    echo -e "\n# Verifying docker group ID"
-    if [[ -z "$DOCKER_GROUP_ID" ]]; then
-        echo -e "- Docker group not found. Please ensure the docker is installed and the docker group exists."
-        exit 1
-    else
-        echo -e "- Docker group ID: ${DOCKER_GROUP_ID}"
-    fi
-}
+    echo ""
+    echo "Installing dependencies..."
+    install_dependencies
 
-run() {
-    verify_docker_group_id
-    verify_env_template
-    verify_huggingface_token
-    echo -e "\n# Starting the apps in docker containers."
-    RENDER_GROUP_ID="$RENDER_GROUP_ID" DOCKER_GROUP_ID="$DOCKER_GROUP_ID" docker compose -f docker-compose.yml up -d
-}
+    echo ""
+    echo "Configuring .env..."
+    setup_env
 
-stop() {
-    echo -e "\n# Stopping the apps in docker containers."
-    docker compose -f docker-compose.yml down
-    docker compose -f docker-compose.yml rm
-}
+    echo ""
+    echo "Building Docker images..."
+    build_images
 
-echo -e "#################################"
-echo -e "#      Edge AI Tuning Kit       #"
-echo -e "#################################"
+    ok "Setup complete!"
+    echo "Start the app with: ./run.sh --start"
+}
 
 show_help() {
-    echo -e "Usage: $0 [-b] [-r] [-s] [-h]"
-    echo -e "  -b  Build app"
-    echo -e "  -r  Run app"
-    echo -e "  -s  Stop app"
-    echo -e "  -h  Show this help message"
+    cat <<EOF
+Usage: setup.sh [OPTION]
+
+  --build, -b    Verify prerequisites and build Docker images (default)
+  --help,   -h   Show this help message
+EOF
 }
 
-if (( $# < 1 | $# > 1)); then
-    echo "Please provide exactly 1 argument"
-    show_help
-    exit 1
-fi
-
-while getopts ":brsh" opt; do
-    case ${opt} in
-        b )
-            build
-            ;;
-        r )
-            run
-            ;;
-        s )
-            stop
-            ;;
-        h )
-            show_help
-            ;;
-        \? )
-            echo "Invalid option: -${OPTARG}" >&2
-            show_help
-            exit 1
-            ;;
-    esac
-done
-
-shift $((OPTIND -1))
+case "${1:-}" in
+    --build|-b)
+        build
+        ;;
+    --help|-h)
+        show_help
+        ;;
+    "")
+        build
+        ;;
+    *)
+        err "Unknown option '$1'"
+        show_help
+        exit 1
+        ;;
+esac

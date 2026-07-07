@@ -35,7 +35,7 @@ build_and_run_application() {
     sed -i 's/HOST=127.0.0.1/HOST=0.0.0.0/g' .env
 
     echo -e "Stopping if got any existing containers...\n"
-    ./setup.sh -s
+    ./run.sh --stop
 
     echo -e "Removing the application volumes...\n"
     docker volume rm edge-ai-tuning-kit-data-cache
@@ -43,15 +43,15 @@ build_and_run_application() {
     docker volume rm edge-ai-tuning-kit-task-cache
 
     echo -e "Building the application...\n"
-    ./setup.sh -b
+    ./setup.sh --build
 
     echo -e "Running the application...\n"
-    HOST=0.0.0.0 ./setup.sh -r
+    HOST=0.0.0.0 ./run.sh --start
 }
 
 restart_application() {
     echo -e "Stopping the application...\n"
-    ./setup.sh -s
+    ./run.sh --stop
 
     echo -e "Removing the application volumes...\n"
     docker volume rm edge-ai-tuning-kit-data-cache
@@ -59,7 +59,7 @@ restart_application() {
     docker volume rm edge-ai-tuning-kit-task-cache
 
     echo -e "Running the application...\n"
-    HOST=0.0.0.0 ./setup.sh -r
+    HOST=0.0.0.0 ./run.sh --start
 }
 
 prepare_fuzzing_environment() {

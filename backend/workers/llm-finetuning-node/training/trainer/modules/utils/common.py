@@ -10,7 +10,6 @@ from pydantic import BaseModel
 
 import torch
 import torch.distributed as dist
-import openvino as ov
 
 
 class GPUModel(BaseModel):
@@ -48,36 +47,6 @@ def get_cpu_info() -> str:
         if "Model name" in line:
             return line.split(":")[1].strip()
     return "Unknown"
-
-
-def get_inference_device() -> str:
-    """
-    Select the appropriate inference device from the available devices.
-
-    Returns:
-        str: The selected inference device.
-    """
-    core = ov.Core()
-    try:
-        device_list = core.available_devices
-        inference_device = "CPU"
-        integrated_gpu = None
-        for device in device_list:
-            if 'GPU' in device:
-                gpu_device_type = str(core.get_property(device, 'DEVICE_TYPE'))
-                if gpu_device_type == "Type.DISCRETE":
-                    return device
-                elif gpu_device_type == "Type.INTEGRATED":
-                    integrated_gpu = device
-
-        if integrated_gpu:
-            return integrated_gpu
-
-        return inference_device
-    except Exception as e:
-        print(f"An error occurred while selecting the inference device: {e}")
-        return "CPU"
-
 
 
 def get_pytorch_inference_device() -> str:
