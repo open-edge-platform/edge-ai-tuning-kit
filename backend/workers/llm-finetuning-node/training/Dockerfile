@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0 
 
-FROM intel/deep-learning-essentials:2025.3.2-0-devel-ubuntu24.04 AS base
+FROM intel/deep-learning-essentials:2026.1.2-devel-ubuntu24.04 AS base
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV LANG=C.UTF-8
