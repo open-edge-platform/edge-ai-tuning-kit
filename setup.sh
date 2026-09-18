@@ -62,6 +62,7 @@ verify_gpu() {
         "Intel(R) Arc(TM) B580 Graphics"
         "Intel(R) Arc(TM) Pro B50 Graphics"
         "Intel(R) Arc(TM) Pro B60 Graphics"
+        "Intel(R) Arc(TM) Pro B70 Graphics"
         "Intel(R) Graphics \[0xe20b\]"
         "Intel(R) Graphics \[0xe211\]"
     )
