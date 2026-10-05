@@ -35,8 +35,8 @@ ENV PATH="/usr/src/.venv/bin:$PATH"
 ENV LD_LIBRARY_PATH=/usr/src/.venv/lib64/
 COPY requirements.txt .
 RUN python3 -m pip install --no-cache-dir -r requirements.txt \
-    && huggingface-cli download BAAI/bge-large-en-v1.5 \
-    && huggingface-cli download BAAI/bge-reranker-base
+    && hf download BAAI/bge-large-en-v1.5 \
+    && hf download BAAI/bge-reranker-base
 COPY --chown=intel:intel . .
 HEALTHCHECK --interval=1m --timeout=30s --start-period=5s --retries=10 \
     CMD celery inspect ping || exit 1

@@ -22,7 +22,7 @@ def _create_subprocess_db_session():
     SQLAlchemy connection pools are not fork-safe, so subprocesses must
     create their own engine."""
     db_url = URL.create(
-        drivername="postgresql",
+        drivername="postgresql+psycopg2",
         username=os.environ.get("POSTGRES_USER", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_URI", "postgres"),

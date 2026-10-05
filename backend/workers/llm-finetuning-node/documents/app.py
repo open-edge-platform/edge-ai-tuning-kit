@@ -1,12 +1,19 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0 
 
+import eventlet
+eventlet.monkey_patch()
+
 import os
+import transformers.utils.import_utils as transformers_import_utils
 from dotenv import find_dotenv, load_dotenv
 
 from celery import Celery
 from celery.signals import worker_ready, worker_shutting_down
 from celery.utils.log import get_task_logger
+
+if not hasattr(transformers_import_utils, "is_torch_fx_available"):
+    transformers_import_utils.is_torch_fx_available = lambda: False
 
 from clients.faiss import FaissClient
 
