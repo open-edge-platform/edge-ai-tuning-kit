@@ -10,7 +10,7 @@
     "dev": "next dev --turbopack -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.51",
@@ -61,7 +61,6 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.0.10",
     "@types/estree": "^1.0.6",
     "@types/json-schema": "^7.0.15",
@@ -71,9 +70,11 @@
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
-    "eslint-config-next": "^16.1.6",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.0.10",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "^8.56.1"
   }
 }
