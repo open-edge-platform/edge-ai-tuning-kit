@@ -4,6 +4,7 @@
 import os
 import logging
 import urllib.parse
+from pathlib import Path as FilePath
 from typing import Annotated, Optional, List, Union
 from typing_extensions import TypedDict
 
@@ -17,6 +18,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/datasets",
                    responses={404: {"description": "Unable to find routes for datasets"}})
 ALLOWED_EXTENSIONS = ['.pdf', '.txt']
+
+
+def _resolve_document_path(dataset_path: FilePath, filename: str) -> FilePath:
+    try:
+        dataset_root = dataset_path.resolve()
+        document_path = (dataset_root / filename).resolve()
+        document_path.relative_to(dataset_root)
+        return document_path
+    except (OSError, RuntimeError, ValueError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail="The file name must refer to a file inside the dataset documents directory.") from error
 
 
 class ICreateDataset(TypedDict):
@@ -132,19 +145,22 @@ async def create_dataset(service: Annotated[DatasetService, Depends()], dataset:
 
 @router.post("/{id}/text_embedding", status_code=200)
 async def create_text_embedding(chunk_size: int, chunk_overlap: int, id: int = Path(..., gt=0, le=ID_MAX),  files: List[UploadFile] = [UploadFile(...)]):
-    DATASET_PATH = f"./data/projects/{id}/faiss/documents"
+    dataset_path = FilePath("./data/projects") / str(id) / "faiss" / "documents"
     file_list = []
     processed_list = []
     for file in files:
         try:
-            filename = urllib.parse.unquote(file.filename)
-            if not file.filename.endswith(tuple(ALLOWED_EXTENSIONS)):
+            filename = urllib.parse.unquote(file.filename or "")
+            if not filename.endswith(tuple(ALLOWED_EXTENSIONS)):
                 logger.warning(f"{filename} is not the supported type.")
                 continue
             else:
-                file_list.append(file)
+                document_path = _resolve_document_path(dataset_path, filename)
+                file_list.append((file, filename, document_path))
 
-        except:
+        except HTTPException:
+            raise
+        except (TypeError, ValueError):
             logger.warning(f"{file.filename} is not a valid file")
 
     if len(file_list) == 0:
@@ -152,11 +168,10 @@ async def create_text_embedding(chunk_size: int, chunk_overlap: int, id: int = P
         raise HTTPException(
             status_code=400, detail="No file is able to use to create text embeddings.")
 
-    if not os.path.isdir(DATASET_PATH):
-        os.makedirs(DATASET_PATH, exist_ok=True)
-    for file in file_list:
-        filename = urllib.parse.unquote(file.filename)
-        with open(f"{DATASET_PATH}/{filename}", "wb") as f:
+    if not dataset_path.is_dir():
+        os.makedirs(dataset_path, exist_ok=True)
+    for file, filename, document_path in file_list:
+        with open(document_path, "wb") as f:
             processed_list.append(filename)
             f.write(file.file.read())
 
