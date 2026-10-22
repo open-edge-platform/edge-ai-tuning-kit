@@ -12,6 +12,8 @@ services:
     hostname: ui
     restart: always
     environment:
+      no_proxy: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
+      NO_PROXY: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
       NEXT_PUBLIC_HOSTNAME: $SERVER_IP
     depends_on:
       backend:
@@ -47,6 +49,8 @@ services:
     ports:
       - "$HOST:5999:5999"
     environment:
+      no_proxy: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
+      NO_PROXY: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
       APP_VER: ${APP_VER}-DEV
       SERVER_PORT: $SERVER_PORT
       SERVER_HOST: $SERVER_HOST
@@ -85,6 +89,8 @@ services:
     environment:
       CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
+      no_proxy: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
+      NO_PROXY: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
       SYCL_CACHE_PERSISTENT: 1
       SYCL_PI_LEVEL_ZERO_USE_IMMEDIATE_COMMANDLISTS: 1
       HF_HOME: ./data/cache
@@ -113,6 +119,8 @@ services:
     networks:
       - app-network
     environment:
+      no_proxy: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
+      NO_PROXY: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
       CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       HF_HOME: ./data/cache
@@ -143,6 +151,8 @@ services:
       - app-network
     shm_size: 16gb
     environment:
+      no_proxy: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
+      NO_PROXY: "localhost,127.0.0.1,::1,host.docker.internal,frontend,backend,dataset-node,document-node,training-node,evaluation-node,postgres,redis"
       CELERY_BROKER_URL: redis://:$REDIS_PASSWORD@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:$REDIS_PASSWORD@redis:6379/1
       HF_HOME: ./data/cache

@@ -56,6 +56,7 @@ verify_ram() {
 
 verify_gpu() {
     local -a gpu_list=(
+        "Intel(R) Arc(TM) B390 GPU"
         "Intel(R) Arc(TM) A770 Graphics"
         "Intel(R) Arc(TM) A770M Graphics"
         "Intel(R) Data Center GPU Flex 170"
@@ -145,8 +146,8 @@ install_packages() {
     done
 
     if (( install_required )); then
-        sudo -E apt-get update
-        sudo -E apt-get install -y "${packages[@]}"
+        sudo apt-get update
+        sudo apt-get install -y "${packages[@]}"
     fi
 }
 
